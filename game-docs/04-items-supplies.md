@@ -78,7 +78,17 @@ Single-status cures tied to `00-gameplay-improvements.md` §4 and resistances in
 | Dreambreak Salt | Sleep | 30 TIC | Most villages and towns |
 | Clarity Vial | Confusion | 30 TIC | Established villages and larger towns |
 | Feverfew Poultice | Illness | 40 TIC | Established villages and larger towns |
+| Stillroot Tonic | Paralysis | 45 TIC | Established villages and larger towns |
+| Hushwater Tonic | Silence | 35 TIC | Established villages and larger towns |
+| Lionheart Draught | Fear | 35 TIC | Established villages and larger towns |
+| Mirrorwash Tonic | Charm | 40 TIC | Rare merchants and treasure chests |
+| Woundbind Bandage | Bleeding | 20 TIC | Most villages and towns |
+| Ironwill Tonic | Weakness | 35 TIC | Established villages and larger towns |
+| Soulmend Incense | Soul weakening, ordinary curses | 120 TIC | Advanced markets, quests, and special enemies (rare) |
+| Chronoward Hourglass | Time freeze, slow, doom | 180 TIC | Advanced markets, major quests, and rare chests (rare) |
 | Rune Smelling Salts | Unconsciousness (field, restores at 25% HP) | 150 TIC | Rare merchants and treasure chests only |
+
+Full status-to-remedy mapping (including advanced effects) lives in `05-damage-status.md` §4.
 
 Notes:
 - Remedies cure but do not grant immunity; resistances remain skill-based (`02` §§4.3–4.6).
@@ -113,7 +123,7 @@ The following categories are reserved for future expansion. Their individual ite
 **Established**
 
 - Twelve recovery items with proposed restoration values and prices.
-- Six status remedies with original names, prices, and availability.
+- Fourteen status remedies with original names, prices, and availability.
 - Three field supplies for travel and exploration.
 - Initial availability and item-balancing rules.
 
