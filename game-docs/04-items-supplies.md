@@ -1,6 +1,6 @@
 # Chronoseria: Items and Supplies
 
-Game design document · Recovery inventory, availability, and future categories. All prices in TIC (see `03-currency-tic.md`).
+Game design document · Recovery inventory, remedies, and field supplies. All prices in TIC (see `03-currency-tic.md`). Source of truth for item prices and availability.
 
 ## 1. Proposed Recovery Items
 
@@ -67,32 +67,31 @@ The Conventional Market is the primary shop for recovery items. Its available st
 4. Item drops and prices should be balanced to prevent excessive farming.
 5. Recovery values and prices may be adjusted after playtesting.
 
-## 2. Status Remedies (original Chronoseria names)
+## 2. Status Remedies (generic names)
 
 Single-status cures tied to `00-gameplay-improvements.md` §4 and resistances in `02-skill-system.md` §§4.3–4.6. One remedy cures one condition; no early panaceas. All prices in TIC.
 
 | Item | Cures | Price | Availability |
 | ---- | ----- | ----- | ------------ |
-| Venomroot Draught | Poison | 25 TIC | Most villages and towns |
-| Gilded Pin | Petrification | 80 TIC | Larger towns and kingdoms (rare) |
-| Dreambreak Salt | Sleep | 30 TIC | Most villages and towns |
-| Clarity Vial | Confusion | 30 TIC | Established villages and larger towns |
-| Feverfew Poultice | Illness | 40 TIC | Established villages and larger towns |
-| Stillroot Tonic | Paralysis | 45 TIC | Established villages and larger towns |
-| Hushwater Tonic | Silence | 35 TIC | Established villages and larger towns |
-| Lionheart Draught | Fear | 35 TIC | Established villages and larger towns |
-| Mirrorwash Tonic | Charm | 40 TIC | Rare merchants and treasure chests |
-| Woundbind Bandage | Bleeding | 20 TIC | Most villages and towns |
-| Ironwill Tonic | Weakness | 35 TIC | Established villages and larger towns |
-| Soulmend Incense | Soul weakening, ordinary curses | 120 TIC | Advanced markets, quests, and special enemies (rare) |
-| Chronoward Hourglass | Time freeze, slow, doom | 180 TIC | Advanced markets, major quests, and rare chests (rare) |
-| Rune Smelling Salts | Unconsciousness (field, restores at 25% HP) | 150 TIC | Rare merchants and treasure chests only |
+| Antidote | Poison | 25 TIC | Most villages and towns |
+| Gold Needle | Petrification | 80 TIC | Larger towns and kingdoms (rare) |
+| Dawn Bell | Sleep | 30 TIC | Most villages and towns |
+| Clarity Dust | Confusion | 30 TIC | Established villages and larger towns |
+| Fever Herb | Fever (illness) | 40 TIC | Established villages and larger towns |
+| Shock Seed | Paralysis | 45 TIC | Established villages and larger towns |
+| Sonic Beans | Silence | 35 TIC | Established villages and larger towns |
+| Holy Cross | Fear | 35 TIC | Established villages and larger towns |
+| Reality Petals | Charm | 40 TIC | Rare merchants and treasure chests |
+| Holy Water | Ordinary curses | 120 TIC | Advanced markets, quests, and special enemies (rare) |
+| Magic Sand | Slow, doom | 180 TIC | Advanced markets, major quests, and rare chests (rare) |
+| Cleansing Water | Blindness | 35 TIC | Established villages and larger towns |
+| Seraphim Dial | Unconsciousness, Dead (field, restores at 25% HP) | 150 TIC | Rare merchants and treasure chests only |
 
 Full status-to-remedy mapping (including advanced effects) lives in `05-damage-status.md` §4.
 
 Notes:
 - Remedies cure but do not grant immunity; resistances remain skill-based (`02` §§4.3–4.6).
-- Field revival never restores full HP; full revival stays at the Sacred Sanctuary (`01-village-buildings.md` §3).
+- Unconsciousness and Dead revive via Seraphim Dial in the field (25% HP) or fully at the Sacred Sanctuary (`01-village-buildings.md` §3).
 - Serious illness, poisoning, or other harmful conditions still require treatment before recovery completes (`00` §4.1).
 
 ## 3. Field Supplies (travel and exploration)
@@ -107,12 +106,12 @@ Cheap stackable goods for preparation, from `00` §§5–6 and hub roles in `01-
 
 > Future proposals moved to `06-recommendations-future-work.md`.
 
-## 5. Current Design Status
+## 4. Current Design Status
 
 **Established**
 
 - Twelve recovery items with proposed restoration values and prices.
-- Fourteen status remedies with original names, prices, and availability.
+- Thirteen status remedies with generic names, prices, and availability.
 - Three field supplies for travel and exploration.
 - Initial availability and item-balancing rules.
 

@@ -109,7 +109,7 @@ When a character's HP reaches zero, the character becomes unconscious instead of
 - Make recovery progress slowly under normal conditions.
 - Allow relevant attributes, including willpower and endurance, to influence recovery stability.
 - Require treatment for serious illness, poisoning, or other harmful conditions.
-- If recovery reaches zero before treatment, trigger death or another defined critical consequence.
+- If recovery reaches zero before treatment, trigger Dead — revived by Seraphim Dial (field, 25% HP) or at the Sacred Sanctuary (full HP).
 - Restore consciousness when recovery reaches its required threshold, with a small amount of HP.
 
 The recovery bar represents a limited survival window, not a second HP bar.

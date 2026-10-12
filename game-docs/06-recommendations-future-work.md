@@ -56,6 +56,6 @@ Phase 3 — Polish and balancing:
 - Design recommendation: Physical/Magic/Elemental as main system; Dark/Soul/Temporal/True as advanced (boss/rare/late-game).
 - Recommended core list for first game:
   - Core damage: Physical, Magic, Fire, Ice, Lightning, Dark, True.
-  - Core statuses: Poison, Sleep, Paralysis, Stun, Confusion, Silence, Petrification, Weakness, Slow, Curse, Instant Death.
-  - Advanced: Fever, Body Withering, Soul Weakening, Time Freeze, Temporal Aging, Soul Severance, Doom.
-- Open: status-effect resistance chart (chance/duration reduction per level); resistance skills for paralysis, silence, fear, charm, bleeding, weakness, death; Lifesteal/MP Steal caps; exact durations, cooldowns, cure values after playtesting.
+  - Core statuses: Poison, Sleep, Blindness, Paralysis, Stun, Confusion, Silence, Petrification, Slow, Curse, Instant Death.
+  - Advanced: Fever, Body Withering, Temporal Aging, Soul Severance, Doom.
+- Open: status-effect resistance chart (chance/duration reduction per level); resistance skills for paralysis, silence, fear, charm, blindness, and death; Lifesteal/Magic Power Steal caps; exact durations, cooldowns, cure values after playtesting.

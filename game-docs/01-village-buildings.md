@@ -20,7 +20,7 @@ Villages and kingdoms act as safe hubs where players recover, gather rumors, rev
 
 ### 1. Inn — rest and recovery
 - Full restore: HP, MP, and endurance after sleeping.
-- Cost scales lightly by arc so early game stays friendly and late game keeps gold meaningful.
+- Cost scales lightly by arc so early game stays friendly and late game keeps TIC meaningful.
 - Sleeping advances time to morning and triggers any overnight NPC dialogue refresh.
 
 ### 2. Tavern — rumors and villagers
@@ -28,8 +28,8 @@ Villages and kingdoms act as safe hubs where players recover, gather rumors, rev
 - Rumors feed the keyword archive (see `00-gameplay-improvements.md` §2.1) and hint at hidden chests, optional bosses, and next destinations.
 - Drinks give small temporary buffs; prices stay low so the tavern remains a social stop, not a power shop.
 
-### 3. Sacred Sanctuary — revival
-- Revives unconscious or dead party members.
+### 3. Sacred Sanctuary — revival (Seraphim Dial)
+- Revives unconscious or dead party members: Seraphim Dial rite at the Sanctuary (full HP, fee-based); a carried Seraphim Dial also revives in the field at 25% HP.
 - Ties into the unconsciousness and recovery system (`00-gameplay-improvements.md` §4.1): field treatment stabilizes, sanctuary fully revives.
 - Fee or offering required; cost grows with party level to keep death meaningful.
 
@@ -50,25 +50,10 @@ Villages and kingdoms act as safe hubs where players recover, gather rumors, rev
 
 ### 7. Mentor's House — skill system
 - Learn and train specialized skills for combat, travel, and exploration.
-
-#### Skill rules
-- Each village, kingdom, or area can have a unique mentor who specializes in a particular skill.
-- Skill levels: each skill trains from Level 1 to Level 50.
-- Skill duration: temporary effects last longer or become more effective as training level rises.
-- Skill limit: players can equip and train only two skills at a time.
-- Unique mentors: different locations offer different mentors and skills, encouraging exploration.
-
-#### Example skills
-- Lockpicking (exploration: open sealed chests/doors).
-- Telepathy (dialogue: reveal hidden NPC intent or extra keyword context).
-- Extended Instinct (travel: longer encounter-warning window).
-- Treasure Sense (exploration: ping nearby hidden chests).
-- Danger Sense (travel: warn of strong enemy tiles).
-- Berserk Mode (combat: high physical burst with defense tradeoff).
-- Mana Barrier (combat: temporary damage shield scaling with level).
+- Rules and definitions live in `02-skill-system.md` (L1-50, 2-slot equip/train, one mentor per skill).
+- Roster: Lockpicking, Telepathy, Extended Instinct, Treasure Sense, Danger Sense, Encounter Veil, Pathfinder, Lifesteal, Magic Power Steal, resistances, Weapon Master, Berserk Mode, Fury Mode, Mana Barrier, Rune Focus, Swift Recovery — see `02` §§3-4.
 
 ## Design links
-- Village test scene (walkable cells, emoji NPCs): `../docs/18-village-test-scene.md`.
 - Recovery and status treatment: `00-gameplay-improvements.md` §4.
 - Inventory categories and equip preview: `00-gameplay-improvements.md` §5.1.
 - Rumors and keywords: `00-gameplay-improvements.md` §2.1–2.3.

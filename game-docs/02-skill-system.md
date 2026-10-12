@@ -1,4 +1,8 @@
-# Chronoseria: Skill System Design Document
+# Chronoseria: Skill System
+
+Game design document · Skills for combat, travel, and exploration. Rules: L1-50, 2-slot equip/train.
+
+> Skills 3.6-3.7, 4.10-4.12 derived from port reference (see `../docs/12-encounters-spawns.md`, `../docs/09-tile-anim-k.md`, `../docs/10-data-b-i.md`, `../docs/11-battle-system.md`).
 
 ## 1. Overview
 
@@ -61,7 +65,7 @@ Allows players to detect potential enemy encounter areas while traveling. When a
 
 Higher levels may increase detection range or provide more information about nearby threats.
 
-### 3.6 Encounter Veil [Added from port docs]
+### 3.6 Encounter Veil
 
 **Category:** Travel
 
@@ -72,7 +76,7 @@ Suppresses random encounters for a number of steps instead of seconds, matching 
 - Effect pauses when travel is paused, dialogue is open, or the game is otherwise not advancing.
 - Replaces the former anti-encounter consumable (see `00-gameplay-improvements.md` §3.2): avoidance now costs a skill slot, keeping the two-skill choice meaningful.
 
-### 3.7 Pathfinder [Added from port docs]
+### 3.7 Pathfinder
 
 **Category:** Travel and Exploration
 
@@ -167,7 +171,7 @@ Higher levels may extend the duration or improve the skill's benefits.
 
 These are separate skills with different strategic purposes. Players may choose between them depending on whether they prioritize offensive strength or sustained action.
 
-### 4.10 Mana Barrier [Added from port docs]
+### 4.10 Mana Barrier
 
 **Category:** Combat and Shield
 
@@ -175,7 +179,7 @@ Creates a temporary damage shield that absorbs incoming damage before HP is redu
 
 Higher levels increase absorb amount and duration. Pairs as a defensive alternative to Berserk Mode and Fury Mode aggression.
 
-### 4.11 Rune Focus [Added from port docs]
+### 4.11 Rune Focus
 
 **Category:** Combat and Offensive Enhancement
 
@@ -183,7 +187,7 @@ Channels rune energy into a short attack surge, adding a small tier-scaled bonus
 
 Higher levels extend turns or raise the bonus. Gives Weapon Master a tactical, windowed alternative.
 
-### 4.12 Swift Recovery [Added from port docs]
+### 4.12 Swift Recovery
 
 **Category:** Combat and Recovery
 
