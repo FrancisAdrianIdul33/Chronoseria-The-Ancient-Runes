@@ -131,7 +131,7 @@ Important distinction: Instant Death is a defeat effect, not ordinary HP damage.
 Item prices, availability, and full definitions live in `04-items-supplies.md` §2 (source of truth, no duplication here).
 
 Status → cure → service:
-- Poison → Antidote → Market; Petrification → Gold Needle → Sanctuary (severe); Sleep → Dawn Bell → Market; Confusion → Clarity Dust → Market; Paralysis → Shock Seed → Market; Silence → Sonic Beans → Market; Fear → Holy Cross → Market; Charm → Reality Petals → Sanctuary; Fever (illness) → Fever Herb → Inn/Market; Curse / Body Withering → Holy Water → Sanctuary; Slow / Doom → Magic Sand → Sanctuary; Unconsciousness → Seraphim Dial (field, 25%) or Sanctuary (full); Dead → Seraphim Dial (field, 25%) or Sanctuary (full); Blindness → Cleansing Water → Market.
+- Poison → Antidote → Market; Petrification → Gold Needle → Sanctuary (severe); Sleep → Dawn Bell → Market; Confusion → Clarity Dust → Market; Paralysis → Shock Seed → Market; Silence → Sonic Beans → Market; Fear → Holy Cross → Market; Charm → Reality Petals → Sanctuary; Fever (illness) → Winter Pearl → Inn/Market; Curse / Body Withering → Holy Water → Sanctuary; Slow / Doom → Magic Sand → Sanctuary; Unconsciousness → Seraphim Dial (field, 25%) or Sanctuary (full); Dead → Seraphim Dial (field, 25%) or Sanctuary (full); Blindness → Cleansing Water → Market.
 - Sanctuary Revival (service, fee-based, full HP) stays at the Sacred Sanctuary (`01-village-buildings.md` §3) — it is a service, not a stocked item.
 
 Rules: remedies cure but grant no immunity (resistances are skill-based, `02` §§4.3–4.6); field revival never restores full HP; serious illness/poisoning still requires treatment before recovery completes (`00-gameplay-improvements.md` §4.1).
@@ -166,7 +166,7 @@ Every status effect should be addressable through at least one path: a resistanc
 | Silence | — | Sonic Beans | Market |
 | Fear | — | Holy Cross | Market |
 | Charm | — | Reality Petals | Sanctuary |
-| Fever / Illness | — | Fever Herb | Inn / Market |
+| Fever / Illness | — | Winter Pearl | Inn / Market |
 | Curse | — | Holy Water | Sanctuary |
 | Body Withering | — | Holy Water (partial) | Sanctuary |
 | Slow / Doom | — | Magic Sand | Sanctuary |

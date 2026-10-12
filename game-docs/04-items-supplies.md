@@ -77,7 +77,7 @@ Single-status cures tied to `00-gameplay-improvements.md` §4 and resistances in
 | Gold Needle | Petrification | 80 TIC | Larger towns and kingdoms (rare) |
 | Dawn Bell | Sleep | 30 TIC | Most villages and towns |
 | Clarity Dust | Confusion | 30 TIC | Established villages and larger towns |
-| Fever Herb | Fever (illness) | 40 TIC | Established villages and larger towns |
+| Winter Pearl | Fever (illness) | 40 TIC | Established villages and larger towns |
 | Shock Seed | Paralysis | 45 TIC | Established villages and larger towns |
 | Sonic Beans | Silence | 35 TIC | Established villages and larger towns |
 | Holy Cross | Fear | 35 TIC | Established villages and larger towns |
