@@ -67,6 +67,22 @@ public final class InputManager extends KeyAdapter {
             public void mouseClicked(MouseEvent e) {
                 if (panel.isTitle()) {
                     panel.acceptAnyKey();
+                    return;
+                }
+                if (panel.isMenu()) {
+                    int i = panel.menuItemAt(e.getX(), e.getY());
+                    if (i >= 0) {
+                        panel.menuSelectIndex(i);
+                    }
+                }
+            }
+
+            @Override
+            public void mouseMoved(MouseEvent e) {
+                if (panel.isMenu()) {
+                    panel.menuSetHover(panel.menuItemAt(e.getX(), e.getY()));
+                } else {
+                    panel.menuSetHover(-1);
                 }
             }
         };

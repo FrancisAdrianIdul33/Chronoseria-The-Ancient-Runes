@@ -17,6 +17,7 @@ public final class Main {
             InputManager input = new InputManager(panel);
             frame.addKeyListener(input);
             panel.addMouseListener(input.mouse());
+            frame.addMouseMotionListener(input.mouse());
             panel.attachInput(input);
             frame.setSize(640, 480);
             frame.setLocationRelativeTo(null);

@@ -60,6 +60,8 @@ public final class GamePanel extends JPanel {
 
     public void startMenu() {
         screen = Screen.MENU;
+        menuIndex = 0;
+        hoverIndex = -1;
     }
 
     public void startGame() {
@@ -72,12 +74,40 @@ public final class GamePanel extends JPanel {
         tick = 0;
     }
 
+    private int hoverIndex = -1;
+
     public void menuUp() {
+        hoverIndex = -1;
         menuIndex = (menuIndex + menuItems.length - 1) % menuItems.length;
     }
 
     public void menuDown() {
+        hoverIndex = -1;
         menuIndex = (menuIndex + 1) % menuItems.length;
+    }
+
+    /** Menu item under the mouse cursor, or -1. */
+    public int menuItemAt(int x, int y) {
+        int left = 60;
+        int right = getWidth() - 60;
+        for (int i = 0; i < menuItems.length; i++) {
+            int top = 140 + i * 52 - 22;
+            if (x >= left && x <= right && y >= top && y <= top + 38) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    public void menuSetHover(int index) {
+        hoverIndex = index;
+    }
+
+    /** Mouse click: select the item and activate it immediately. */
+    public void menuSelectIndex(int index) {
+        menuIndex = index;
+        hoverIndex = index;
+        menuSelect();
     }
 
     public void menuSelect() {
@@ -118,10 +148,12 @@ public final class GamePanel extends JPanel {
         int y = 140;
         for (int i = 0; i < menuItems.length; i++) {
             boolean sel = i == menuIndex;
-            g2.setColor(sel ? GamePalette.LEGENDARY_GOLD : GamePalette.PARCHMENT_DARK);
+            boolean hov = i == hoverIndex;
+            g2.setColor(sel ? GamePalette.LEGENDARY_GOLD
+                    : hov ? GamePalette.PARCHMENT : GamePalette.PARCHMENT_DARK);
             g2.fillRect(60, y - 22, w - 120, 38);
             g2.setColor(GamePalette.ROYAL_BLUE);
-            g2.setStroke(new BasicStroke(sel ? 3f : 1f));
+            g2.setStroke(new BasicStroke(sel ? 3f : hov ? 2f : 1f));
             g2.drawRect(60, y - 22, w - 120, 38);
             if (sel) {
                 g2.setColor(GamePalette.LEGENDARY_GOLD);
@@ -133,7 +165,7 @@ public final class GamePanel extends JPanel {
             g2.drawString(menuItems[i], 80, y + (fm.getAscent() - fm.getDescent()) / 2 + 1);
             y += 52;
         }
-        drawCentered(g2, "UP/DOWN + ENTER   ESC=title", w / 2, h - 24, new Font(Font.MONOSPACED, Font.PLAIN, 11), GamePalette.ROYAL_BLUE, 1f);
+        drawCentered(g2, "UP/DOWN + ENTER / click   ESC=title", w / 2, h - 24, new Font(Font.MONOSPACED, Font.PLAIN, 11), GamePalette.ROYAL_BLUE, 1f);
     }
 
     private void drawTitle(Graphics2D g2) {
