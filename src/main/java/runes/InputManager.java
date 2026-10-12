@@ -40,7 +40,7 @@ public final class InputManager extends KeyAdapter {
             panel.startMenu();
             return;
         }
-        if (held.add(code) && (code == KeyEvent.VK_ENTER || code == KeyEvent.VK_Z)) {
+        if (held.add(code) && (code == KeyEvent.VK_ENTER || code == KeyEvent.VK_Z || code == KeyEvent.VK_E)) {
             talkQueued = true;
         }
     }
