@@ -1,0 +1,7 @@
+{
+  "id": "arc1",
+  "title": "Emberfall Prologue",
+  "maps": 3,
+  "startFlags": [0],
+  "notes": "Original arc. Mirrors PACK structure from 13-story-arcs doc without copying text."
+}
