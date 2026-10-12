@@ -4,14 +4,15 @@ import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /** TITLE any-key/click (after 2s) -> MENU -> GAME; GAME reads held-key state. */
 public final class InputManager extends KeyAdapter {
     private final GamePanel panel;
-    private final Set<Integer> held = new HashSet<>();
-    private boolean talkQueued;
+    // Written on the EDT, read by the game-loop thread; concurrent set + volatile.
+    private final Set<Integer> held = ConcurrentHashMap.newKeySet();
+    private volatile boolean talkQueued;
 
     public InputManager(GamePanel panel) {
         this.panel = panel;

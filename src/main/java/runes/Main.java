@@ -15,7 +15,7 @@ public final class Main {
             panel.setFocusable(true);
             frame.setContentPane(panel);
             InputManager input = new InputManager(panel);
-            frame.addKeyListener(input);
+            panel.addKeyListener(input); // listen on the focused component, not the frame
             panel.addMouseListener(input.mouse());
             frame.addMouseMotionListener(input.mouse());
             panel.attachInput(input);
