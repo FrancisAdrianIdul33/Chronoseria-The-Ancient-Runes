@@ -22,6 +22,7 @@ public final class GamePanel extends JPanel {
     private int menuIndex;
     private final String[] menuItems = {"New Game", "Load Game", "Continue", "Chronicles", "Bestiary", "Settings"};
     private InputManager input;
+    private final VillageScene village = new VillageScene();
 
     public void attachInput(InputManager input) {
         this.input = input;
@@ -34,7 +35,7 @@ public final class GamePanel extends JPanel {
     public void tick() {
         tick++;
         if (screen == Screen.GAME && input != null) {
-            // Game logic placeholders (no village scene)
+            village.update(input);
         }
         repaint();
     }
@@ -64,6 +65,7 @@ public final class GamePanel extends JPanel {
     }
 
     public void startGame() {
+        village.reset();
         screen = Screen.GAME;
         requestFocusInWindow();
     }
@@ -132,10 +134,7 @@ public final class GamePanel extends JPanel {
     }
 
     private void drawGame(Graphics2D g2) {
-        // Simple background for the game screen
-        g2.setColor(GamePalette.ROYAL_DEEP);
-        g2.fillRect(0, 0, getWidth(), getHeight());
-        drawCentered(g2, "GAME", getWidth() / 2, getHeight() / 2, new Font(Font.SERIF, Font.BOLD, 38), GamePalette.PARCHMENT, 1f);
+        village.draw(g2, getWidth(), getHeight());
     }
 
     private void drawMenu(Graphics2D g2) {
@@ -225,6 +224,7 @@ public final class GamePanel extends JPanel {
             }
         }
         String s = spaced.toString();
+        FontMetrics fm = g2.getFontMetrics();
         g2.drawString(s, cx - fm.stringWidth(s) / 2, y);
         g2.setComposite(old);
     }
