@@ -75,17 +75,11 @@ Help players understand the results of their tactical decisions.
 - Record discovered enemy information in a bestiary.
 - Keep some weaknesses hidden for experimentation and discovery.
 
-3.2 Rare Enemy-Encounter Prevention Item
+3.2 Encounter Avoidance via Skill (supersedes former prevention item)
 
-Introduce a rare consumable that temporarily prevents random enemy encounters while travelling.
+The former rare encounter-prevention consumable has been removed. Encounter avoidance now lives in exactly one place: the Encounter Veil skill — see `02-skill-system.md` §3.6.
 
-- Obtainable only from treasure chests, never sold in shops.
-- Configurable duration of 10, 20, 30, or up to 60 seconds.
-- Display a countdown while the effect is active.
-- Pause the countdown when travel is paused, dialogue is open, or the game is otherwise not advancing.
-- Do not prevent scripted boss fights, story battles, or designated special encounters.
-
-The item offers temporary relief without eliminating the risk of exploration.
+Avoidance costs a skill slot (two-skill limit), keeping the choice strategic. Treasure chests return to gear, lore, and non-avoidance consumables.
 
 3.3 Strategic Boss Encounters
 
