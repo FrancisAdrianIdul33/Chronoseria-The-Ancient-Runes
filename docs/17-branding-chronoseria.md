@@ -29,3 +29,6 @@ UI uses GamePalette only: parchment/royal/gold + feedback red/green/arcane/viole
 ## App naming
 - Window: `Chronoseria: The Ancient Runes`
 - Docs home: `docs/` in repo root (this folder).
+
+## Game design docs
+- Forward design spec lives in `game-docs/` (sibling to `docs/`): `00-gameplay-improvements.md` (quest journal, combat, recovery, inventory, difficulty, mobile, phases 1-3).
