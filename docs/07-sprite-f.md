@@ -14,7 +14,4 @@
 - `a(byte[],int,boolean)` reads `byte[1]&0xFF` as frame count `f` (256 if 0), allocates `int[a][f]`, then loops pixels combining two bytes `((b1&0xFF)<<8|(b2&0xFF))` into frame ints — custom packed sprite format from PACK/a* files.
 - `a(Graphics,x,y)` blits current frame. 8-arg version draws sub-rect (clipping/scroll).
 
-## Copy notes
-- Ancient Runes `Sprite` class: `BufferedImage[] frames; int w,h; void load(byte[] packed); void draw(Graphics2D g,int x,int y); void drawClipped(...)`.
-- Replace `Image[]` with `BufferedImage[]`. Keep packed format loader — document RLE/palette after deeper decompile.
-- `b` flag = visible/dirty. `d,e` = anchor offset.
+> Recommendations moved to `00-recommendations-future-work.md`.

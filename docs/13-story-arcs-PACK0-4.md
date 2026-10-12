@@ -20,7 +20,4 @@ Example PACK0:
 - `c.a(stage,room)`, `g.a(stage,room,flag)` transitions load `PACKn_m` via `a.a(String)`.
 - Boss at end of each PACK (one-shot from 86-table) unlocks next PACK.
 
-## Copy notes
-- Ancient Runes: `arcs/arc1..arc5/` each with `header.json, maps/, dialogues/, encounters.json, boss.json`.
-- Keep 5-arc pacing, 12-15 maps per arc. Write ORIGINAL story — rune shards, not crystals.
-- Loader: `AssetLoader.loadArc(n)` mirrors `a.a(PACKn_m)`.
+> Recommendations moved to `00-recommendations-future-work.md`.

@@ -85,12 +85,13 @@ i = container (b[4], short[86][2], short[32], int[3]x4, short[36], bool[50], boo
 2. Copy LOGIC, not text/graphics. Rename everything: `FinalFantasy->RuneOrigin`, `a->RuneCanvas`, etc. Full map in `15-rebrand-to-Ancient-Runes.md`.
 3. Clean-room: describe behavior in own words. Do not paste decompiled method bodies verbatim beyond short `javap` signatures for reference.
 4. Original folder NEVER modified. Only read via `javap`. All new writing goes here.
-5. Future JDK 26 build will be Gradle + `JFrame/JPanel/Graphics2D`, `javax.sound.sampled`, `java.nio.file` saves — no `javax.microedition.*`.
+5. See `00-recommendations-future-work.md` for JDK 26 build plan (moved out to keep this file reference-only).
 6. Personal study only. Do not redistribute original PACKs or EA IP.
 
 ## 5. Doc map in this folder
 
 ```
+00-recommendations-future-work.md (recommendations, first)
 00-overview.md (this file)
 01-entry-lifecycle-FinalFantasy.md
 02-class-catalog.md
@@ -107,8 +108,8 @@ i = container (b[4], short[86][2], short[32], int[3]x4, short[36], bool[50], boo
 13-story-arcs-PACK0-4.md
 14-maps-assets.md
 15-rebrand-to-Ancient-Runes.md
+16-ui-palette.md
+17-branding-chronoseria.md
 ```
 
-## 6. Next step
-
-Read 01→10 for raw evidence, then 11→15 for synthesized systems + rebrand plan. No code scaffold until docs approved.
+> Recommendations moved to `00-recommendations-future-work.md`.

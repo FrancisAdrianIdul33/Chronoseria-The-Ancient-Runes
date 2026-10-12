@@ -16,6 +16,4 @@ Interpretation:
 - `a(x,y):boolean` = collision query.
 - `f a` = shared sprite sheet.
 
-## Copy notes
-- Split into `Tileset` (static map) + `Anim` (timed frames) in JDK26.
-- Keep `short` ids for save compat, but expose enums: `Tile.SOLID, Tile.ENCOUNTER, Tile.WARP`.
+> Recommendations moved to `00-recommendations-future-work.md`.

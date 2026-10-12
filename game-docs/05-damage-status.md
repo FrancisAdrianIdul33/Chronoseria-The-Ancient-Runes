@@ -59,7 +59,7 @@ Special damage. Damage that bypasses some or all of the target's defense.
 - **Counter:** Evasion, damage reduction, barriers, or effects that specifically reduce true damage.
 - **Balance rule:** True damage should be rare or limited to prevent defense from becoming useless.
 
-**Design recommendation:** Physical, magic, and elemental damage should form the main damage system. Dark, soul, temporal, and true damage can be advanced mechanics reserved for particular skills, bosses, rare weapons, or later-game content.
+**System split:** Physical, magic, and elemental damage are the main system. Dark, soul, temporal, and true damage are advanced mechanics for particular skills, bosses, rare weapons, or late-game content.
 
 ## 2. Status effects
 
@@ -167,23 +167,7 @@ For balance, basic remedies should be purchasable in towns, while rare remedies 
 7. **Defeat and revival:** Revival should remove only the effects specified by the rules, rather than automatically clearing every condition.
 8. **Player readability:** The interface should clearly display the effect's name, icon, remaining duration, and any important gameplay consequence.
 
-## 6. Recommended core list for the first game
-
-To avoid overwhelming players, Chronoseria: The Ancient Runes launches with a manageable set and adds advanced effects later.
-
-### Core damage types
-
-Physical, Magic, Fire, Ice, Lightning, Dark, and True Damage.
-
-### Core status effects
-
-Poison, Sleep, Paralysis, Stun, Confusion, Silence, Petrification, Weakness, Slow, Curse, and Instant Death.
-
-### Advanced status effects
-
-Fever, Body Withering, Soul Weakening, Time Freeze, Temporal Aging, Soul Severance, and Doom.
-
-This structure gives the game familiar RPG mechanics while leaving room for Chronoseria's own identity through temporal and spiritual conditions.
+> Core/advanced split moved to `06-recommendations-future-work.md`.
 
 ## 7. Skill, item, and service cross-reference
 
@@ -232,10 +216,5 @@ Lifesteal and Magic Power Steal (`02` §§4.1–4.2) recover HP/MP by dealing da
 - Eight implementation rules for duration, stacking, resistance, immunity, and readability.
 - Full skill ↔ item ↔ service cross-reference.
 
-**Open for future development**
-
-- A dedicated status-effect resistance chart mapping each resistance skill to chance/duration reduction per level.
-- Resistance skills for paralysis, silence, fear, charm, bleeding, weakness, and death (currently `future`).
-- Numerical caps for Lifesteal and Magic Power Steal.
-- Exact durations, cooldowns, and cure values after playtesting.
+> Open items moved to `06-recommendations-future-work.md`.
 

@@ -25,4 +25,4 @@ Lifecycle pattern in c/d/e/g (from javap):
 `public final void c(); public final void a(); public final int a(); public final void b(); public final void d(); public final void a(Graphics);`
 h defines `abstract int a(); abstract void a(Graphics); void b(); void d();`
 
-Copy for Ancient Runes: keep same state split, rename to meaningful names.
+> Recommendations moved to `00-recommendations-future-work.md`.

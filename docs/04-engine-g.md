@@ -20,7 +20,4 @@
 - `c a + d a` = battle uses field state + menu state without reload.
 - Static `Image[]` = tileset cache. `j` refs = party + enemies.
 
-## Copy notes
-- Split g into: `WorldEngine`, `BattleEngine`, `MapRenderer`, `UIRenderer`, `FlagStore`.
-- Keep method-per-layer idea, but as separate classes for JDK26.
-- Encounter logic lives here — see 12-encounters-spawns.md.
+> Recommendations moved to `00-recommendations-future-work.md`.

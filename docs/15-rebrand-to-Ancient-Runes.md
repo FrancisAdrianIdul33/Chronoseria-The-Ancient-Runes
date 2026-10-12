@@ -36,9 +36,5 @@
 1. Original folder read-only. Only `javap` reads.
 2. New art/text/story — inspired by logic, not copied.
 3. Keep systems: 4-party, 255 bestiary, 50 story flags, 86 triggers, step-roll encounters, tier-scale damage, 5 arcs x ~15 maps, 5 langs.
-4. No build yet — docs approved first. Next: CFR decompile of a,g,c for bodies, then Gradle scaffold `ancient-runes-jdk26/`.
 
-## Immediate next steps when ready
-1. Run CFR/Procyon on a,g,c,h -> save excerpts to `16-decompile-notes.md` (new file if needed).
-2. Scaffold Gradle Java 26 app in separate folder (NOT here).
-3. Implement GamePanel + AssetLoader loading copied PACK structure as JSON.
+> Recommendations moved to `00-recommendations-future-work.md`.

@@ -23,15 +23,4 @@ public final class FinalFantasy extends javax.microedition.midlet.MIDlet {
 - pauseApp: if (a.a>0 && a!=null) a.h(); // a.h = suspend/pause hook, [a.a] is short state flag
 - destroyApp: if (a!=null) a.i(); // a.i = teardown/save hook
 
-## Rebrand mapping (Ancient Runes)
-- FinalFantasy -> RuneOriginApp (main class, JDK26: `public class Main { public static void main }`)
-- startApp first-branch -> `init() + showWindow() + startLoopThread()`
-- startApp second-branch -> `resumeWindow()`
-- pauseApp -> `onPause()`, destroyApp -> `onExitSave()`
-- Display.setCurrent(a) -> JFrame.setContentPane(GamePanel)
-- new Thread(a).start() -> game loop executor / Thread(GameLoop)
-
-## What to copy
-- Lazy singleton screen creation, re-set on resume, thread start once.
-- Pause guard on short state flag before calling suspend.
-- Destroy always calls save/teardown if screen exists.
+> Recommendations moved to `00-recommendations-future-work.md`.

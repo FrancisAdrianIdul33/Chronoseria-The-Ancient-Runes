@@ -28,7 +28,4 @@ Holds globals, loop, input, save, audio. All other states accessed via static `a
 - `a(String)` opens resource `DataInputStream` for PACK/a* files.
 - `Player[]` + `InputStream[]` = background music + SFX slots.
 
-## Copy notes
-- RuneCanvas: `JPanel + Runnable`, `paintComponent(Graphics2D)`, `KeyListener`, `GameLoop thread`.
-- Keep static globals but refactor to `GameContext` singleton (no statics sprawl).
-- Save: RMS -> `SaveManager` with `java.nio.file`.
+> Recommendations moved to `00-recommendations-future-work.md`.

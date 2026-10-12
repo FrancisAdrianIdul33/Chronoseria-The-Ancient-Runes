@@ -205,22 +205,10 @@ Skills should be balanced to prevent a single ability from becoming the best cho
 
 Lifesteal and Magic Power Steal should also have defined recovery limits to prevent excessive or unlimited resource regeneration.
 
-Encounter Veil step counts, Mana Barrier absorb values, Rune Focus bonuses, and Swift Recovery tick rates all require tuning against encounter pacing (`../docs/12-encounters-spawns.md`) and fair difficulty (`00-gameplay-improvements.md` §6).
+Tuning values moved to `06-recommendations-future-work.md`.
 
-## 6. Future Skill Expansion
+## 6. Design Status
 
-The skills listed in this document establish the initial foundation of Chronoseria's skill system. Additional skills may be introduced later to expand combat strategies, exploration mechanics, travel options, and interactions with the world.
+This document establishes the initial skill concepts, categories, and core rules for Chronoseria.
 
-Future skills should follow these design principles:
-
-1. Every skill should have a distinct gameplay purpose.
-2. Skills should reward exploration, preparation, and strategic decisions.
-3. Progression from Level 1 to Level 50 should provide meaningful improvements.
-4. The two-skill limit should encourage strategic choices without making other skills irrelevant.
-5. Skills should remain useful without making combat or exploration unnecessarily easy.
-
-## 7. Design Status
-
-This document establishes the initial skill concepts, categories, and core rules for Chronoseria. Exact skill costs, activation methods, cooldowns, durations, numerical bonuses, and level-by-level progression remain to be defined during implementation and balancing.
-
-The system will continue to expand as new skills and gameplay mechanics are developed.
+> Recommendations moved to `06-recommendations-future-work.md`.

@@ -1,10 +1,10 @@
-# Chronoseria: Complete Gameplay Improvement Recommendations
+# Chronoseria: Gameplay Spec
 
 Game development design document · Classic fantasy turn-based RPG
 
 Chronoseria is a classic fantasy RPG inspired by early Japanese role-playing games. Its goal is to preserve the nostalgic experience of pixel-art graphics, turn-based combat, exploration, warriors, monsters, magic, and ancient mysteries while improving quest guidance, gameplay clarity, strategic depth, and mobile usability.
 
-The following recommendations consolidate the identified design gaps and proposed solutions into a structured plan for development.
+The following spec consolidates the design into a structured plan for development.
 
 ## 1. Quest and progression systems
 
@@ -192,55 +192,4 @@ Make each major dungeon feel distinct.
 - Provide adjustable text speed, battle speed, and UI scaling.
 - Ensure menus and dialogue remain readable on small screens.
 
-## 8. Recommended development priorities
-
-The recommendations should be implemented in stages so the initial game remains manageable.
-
-Phase 1
-
-## Core gameplay clarity
-
-Build these first.
-
-- Quest journal and post-boss objectives
-- World map and location guidance
-- NPC keyword archive and dialogue history
-- Basic combat feedback and status descriptions
-- Inventory organization and saving
-
-Phase 2
-
-## Strategic gameplay systems
-
-Add more depth after the core loop works.
-
-- Unconsciousness and recovery mechanics
-- Rare encounter-prevention consumable
-- Distinct party roles and enemy bestiary
-- Meaningful exploration rewards
-- Varied dungeons and strategic boss battles
-
-Phase 3
-
-## Polish and balancing
-
-Refine the experience through testing.
-
-- Encounter frequency and difficulty balancing
-- Reactive NPC dialogue and lore codex
-- Mobile accessibility and interface settings
-- Tutorial improvements and optional hints
-- Autosave testing and recovery edge cases
-
-## 9. Final design principles
-
-Chronoseria should follow these principles throughout development:
-
-1. Preserve mystery, reduce confusion. Players should be able to investigate the world without losing track of their immediate objectives.
-2. Make difficulty fair. Dangerous encounters should reward preparation, strategy, and learning rather than unnecessary repetition.
-3. Make information accessible. Important dialogue, clues, status effects, and character attributes should remain available for review.
-4. Reward exploration. Hidden places and optional challenges should offer meaningful discoveries.
-5. Make survival strategic. Unconsciousness, recovery, illness, and poisoning should create urgency while allowing informed counterplay.
-6. Respect mobile players. Menus, controls, saving, and text must work comfortably on a phone.
-
-The defining feature of Chronoseria can be its balance between classic RPG challenge and modern usability. The player still needs to explore, remember clues, prepare for battles, and make difficult decisions, but the game provides enough information to make those decisions meaningful.
+> Recommendations moved to `06-recommendations-future-work.md`.

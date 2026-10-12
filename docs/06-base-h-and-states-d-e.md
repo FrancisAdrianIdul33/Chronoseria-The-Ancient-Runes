@@ -23,4 +23,4 @@ Fields: `k i, int a,b,x..I, short[][] g,h, short[] a, byte[][] b, byte[] f, char
 Methods: `a(), a():int, b(), a(Graphics)` + `f(), B()..G()`.
 Guess: dialogue/text state (char[], char cursors, String[] lines).
 
-Copy: keep h pattern as `GameState` interface + `BaseState` helper in JDK26. d->MenuState, e->DialogueState.
+> Recommendations moved to `00-recommendations-future-work.md`.

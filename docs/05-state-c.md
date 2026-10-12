@@ -16,7 +16,4 @@
 - `int[][]/byte[][]` tables = damage formulas, AI scripts, dialogue indices.
 - Overloaded `a(int...)` = state transitions: `a(stage,room)`, `a(stage,room,flag)`.
 
-## Copy notes
-- Candidate for `BattleScreen` or `DungeonHub` in Ancient Runes.
-- Extract tables to `data/battle_tables.json` equivalent, not hard-coded arrays.
-- Keep `a(Graphics)` split: background, sprites, floating numbers, menu.
+> Recommendations moved to `00-recommendations-future-work.md`.

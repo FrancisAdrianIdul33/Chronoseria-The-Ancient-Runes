@@ -28,7 +28,4 @@ Small 400-40KB each. Pattern: `a19 441` tiny (icon?), `a22-29 ~1KB` (tiles), `a0
 - `i.png 446b` = MIDlet icon.
 - `fn0 8383` = font bitmap. `cp0 18114` = codepage/text. `ss0/ts0` = sound/tiles.
 
-## Copy notes
-- Copy STRUCTURE + sizes for reference, not binary content verbatim in new game.
-- Ancient Runes `assets/` mirrors: `tiles/, sprites/, portraits/, maps/, audio/, fonts/, text/{en,fr,it,de,es}/`.
-- Keep 5-lang support — cheap win from `I` design.
+> Recommendations moved to `00-recommendations-future-work.md`.

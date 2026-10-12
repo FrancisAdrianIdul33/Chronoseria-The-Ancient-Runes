@@ -30,7 +30,4 @@ f.a(Graphics,x,y) = blit sprite frame
 - `e` holds `char[]`, `char a,b` cursors + `String[] a` = scrolling message box (“X casts...”).
 - Flow: select command (d) -> select target (d.a(j...)) -> play anim (k+f) -> apply (j) -> message (e).
 
-## 5. What to copy to Ancient Runes
-- Keep 4-slot party, 255 bestiary, tier-scale curve.
-- Rebuild as: `BattleEngine { List<Battler> allies,enemies; Queue<Turn> orderBySpd; }`, `DamageCalc { int calc(Atk,Def,Tier,Element) }`, `BattleScreen`, `MessageBox`.
-- Do NOT copy spell names/text — write original rune magic.
+> Recommendations moved to `00-recommendations-future-work.md`.

@@ -28,7 +28,4 @@ onStep(x,y):
 - `short[86][2]` in i = 86 triggers x (map,event) = one-time spawns/bosses.
 - `Player[]` in a = battle swirl SFX.
 
-## Copy notes
-- Ancient Runes `EncounterSystem { float rateFor(Biome,Steps); List<Enemy> roll(Zone) }`.
-- Keep step-counter + 0-255 roll (classic feel), but expose JSON tables.
-- Bosses = `short[86][2]` one-shots, not random.
+> Recommendations moved to `00-recommendations-future-work.md`.

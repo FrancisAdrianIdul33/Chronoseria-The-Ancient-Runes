@@ -16,6 +16,4 @@ Interpretation:
 - `a(Graphics)` draws self via `k`.
 - `a():int/b():int/c():int/d():int` = getState/getHP/getMP/getStatus.
 
-## Copy notes
-- Ancient Runes `Entity`: `x,y,hp,maxHp,mp,atk,def,spd; boolean alive,active,visible; Anim anim; Script script; void update(); void draw(Graphics2D);`
-- Keep flag count but name them. AI tables in `byte[][]` -> `List<AICommand>`.
+> Recommendations moved to `00-recommendations-future-work.md`.

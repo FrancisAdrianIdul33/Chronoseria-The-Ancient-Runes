@@ -16,7 +16,7 @@ Bytecode:
 
 Interpretation: stat-growth record. `a` = level/tier, `a()` = multiplier (1,2,4,8... then 256,512...). `byte[8][3]` = 8 stats x 3 ranks. `b,c` ints = xp/hp.
 
-Copy: `GrowthCurve { int tier; int scale(); }` + `Stats { byte[8][3] }`.
+> Recommendations moved to `00-recommendations-future-work.md` (GrowthCurve/Stats, Party/Flags/Bestiary).
 
 ## i — 595 bytes, container
 ```java
@@ -39,4 +39,4 @@ Interpretation:
 - 36 = enemy slots? 50 = story flags, 255 = bestiary/seen flags (`boolean[255]` classic).
 - `d=-1` = no selection.
 
-Copy: `Party { Battler[4] }`, `QuestFlags[86][2]`, `StoryFlags[50]`, `Bestiary[255]`.
+> Recommendations moved to `00-recommendations-future-work.md`.

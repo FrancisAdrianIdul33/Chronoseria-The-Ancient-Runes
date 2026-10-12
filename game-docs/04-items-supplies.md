@@ -105,18 +105,7 @@ Cheap stackable goods for preparation, from `00` §§5–6 and hub roles in `01-
 | Lantern Oil | Lights dark dungeon tiles for a short time | 8 TIC | Most villages and towns |
 | Rune Chalk | Marks visited tiles/doors on the local map | 6 TIC | Established villages and larger towns |
 
-## 4. Future Item Proposals
-
-The following categories are reserved for future expansion. Their individual items and prices have not yet been finalized.
-
-| Category                        | Possible Purpose                                                      |
-| ------------------------------- | --------------------------------------------------------------------- |
-| Status Recovery                 | Removes poison, petrification, sleep, or confusion.                   |
-| Combat Enhancements             | Temporarily increases attack power, magic power, or other attributes. |
-| Defensive Items                 | Temporarily improves defense or resistance to status effects.         |
-| Travel and Exploration Supplies | Helps players navigate, explore, or prepare for dangerous areas.      |
-| Rare Quest Items                | Used to complete special quests or unlock story events.               |
-| Crafting Materials              | Used for equipment upgrades, item creation, or other crafting systems.|
+> Future proposals moved to `06-recommendations-future-work.md`.
 
 ## 5. Current Design Status
 
@@ -127,13 +116,7 @@ The following categories are reserved for future expansion. Their individual ite
 - Three field supplies for travel and exploration.
 - Initial availability and item-balancing rules.
 
-**Open for future development**
-
-- Additional item types and their prices.
-- Combat enhancement items.
-- Equipment prices and upgrade costs.
-- Selling prices and rewards from enemies or quests.
-- Any adjustments required after gameplay testing.
+> Open items moved to `06-recommendations-future-work.md`.
 
 ## Design links
 
