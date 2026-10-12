@@ -67,7 +67,35 @@ The Conventional Market is the primary shop for recovery items. Its available st
 4. Item drops and prices should be balanced to prevent excessive farming.
 5. Recovery values and prices may be adjusted after playtesting.
 
-## 2. Future Item Proposals
+## 2. Status Remedies (original Chronoseria names)
+
+Single-status cures tied to `00-gameplay-improvements.md` §4 and resistances in `02-skill-system.md` §§4.3–4.6. One remedy cures one condition; no early panaceas. All prices in TIC.
+
+| Item | Cures | Price | Availability |
+| ---- | ----- | ----- | ------------ |
+| Venomroot Draught | Poison | 25 TIC | Most villages and towns |
+| Gilded Pin | Petrification | 80 TIC | Larger towns and kingdoms (rare) |
+| Dreambreak Salt | Sleep | 30 TIC | Most villages and towns |
+| Clarity Vial | Confusion | 30 TIC | Established villages and larger towns |
+| Feverfew Poultice | Illness | 40 TIC | Established villages and larger towns |
+| Rune Smelling Salts | Unconsciousness (field, restores at 25% HP) | 150 TIC | Rare merchants and treasure chests only |
+
+Notes:
+- Remedies cure but do not grant immunity; resistances remain skill-based (`02` §§4.3–4.6).
+- Field revival never restores full HP; full revival stays at the Sacred Sanctuary (`01-village-buildings.md` §3).
+- Serious illness, poisoning, or other harmful conditions still require treatment before recovery completes (`00` §4.1).
+
+## 3. Field Supplies (travel and exploration)
+
+Cheap stackable goods for preparation, from `00` §§5–6 and hub roles in `01-village-buildings.md`.
+
+| Item | Effect | Price | Availability |
+| ---- | ------ | ----- | ------------ |
+| Trail Rations | Small endurance top-up while traveling | 5 TIC | Most villages and towns |
+| Lantern Oil | Lights dark dungeon tiles for a short time | 8 TIC | Most villages and towns |
+| Rune Chalk | Marks visited tiles/doors on the local map | 6 TIC | Established villages and larger towns |
+
+## 4. Future Item Proposals
 
 The following categories are reserved for future expansion. Their individual items and prices have not yet been finalized.
 
@@ -80,17 +108,19 @@ The following categories are reserved for future expansion. Their individual ite
 | Rare Quest Items                | Used to complete special quests or unlock story events.               |
 | Crafting Materials              | Used for equipment upgrades, item creation, or other crafting systems.|
 
-## 3. Current Design Status
+## 5. Current Design Status
 
 **Established**
 
 - Twelve recovery items with proposed restoration values and prices.
+- Six status remedies with original names, prices, and availability.
+- Three field supplies for travel and exploration.
 - Initial availability and item-balancing rules.
 
 **Open for future development**
 
 - Additional item types and their prices.
-- Status recovery and combat enhancement items.
+- Combat enhancement items.
 - Equipment prices and upgrade costs.
 - Selling prices and rewards from enemies or quests.
 - Any adjustments required after gameplay testing.
