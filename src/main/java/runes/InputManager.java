@@ -4,10 +4,14 @@ import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.util.HashSet;
+import java.util.Set;
 
-/** TITLE any-key/click (after 2s) -> MENU -> GAME, ESC steps back. */
+/** TITLE any-key/click (after 2s) -> MENU -> GAME; GAME reads held-key state. */
 public final class InputManager extends KeyAdapter {
     private final GamePanel panel;
+    private final Set<Integer> held = new HashSet<>();
+    private boolean talkQueued;
 
     public InputManager(GamePanel panel) {
         this.panel = panel;
@@ -29,9 +33,32 @@ public final class InputManager extends KeyAdapter {
             }
             return;
         }
-        if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+        int code = e.getKeyCode();
+        if (code == KeyEvent.VK_ESCAPE) {
+            held.clear();
             panel.startMenu();
+            return;
         }
+        if (held.add(code) && (code == KeyEvent.VK_ENTER || code == KeyEvent.VK_Z)) {
+            talkQueued = true;
+        }
+    }
+
+    @Override
+    public void keyReleased(KeyEvent e) {
+        held.remove(e.getKeyCode());
+    }
+
+    /** True while the key is physically down (for smooth walking). */
+    public boolean isHeld(int keyCode) {
+        return held.contains(keyCode);
+    }
+
+    /** One-shot talk press; auto-repeats are filtered by the held set. */
+    public boolean drainTalkPressed() {
+        boolean t = talkQueued;
+        talkQueued = false;
+        return t;
     }
 
     public MouseAdapter mouse() {

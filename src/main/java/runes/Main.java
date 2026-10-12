@@ -17,7 +17,8 @@ public final class Main {
             InputManager input = new InputManager(panel);
             frame.addKeyListener(input);
             panel.addMouseListener(input.mouse());
-            frame.setSize(480, 640);
+            panel.attachInput(input);
+            frame.setSize(640, 480);
             frame.setLocationRelativeTo(null);
             frame.setVisible(true);
             panel.requestFocusInWindow();

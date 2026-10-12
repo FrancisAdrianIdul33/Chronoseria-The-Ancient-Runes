@@ -68,6 +68,7 @@ Villages and kingdoms act as safe hubs where players recover, gather rumors, rev
 - Mana Barrier (combat: temporary damage shield scaling with level).
 
 ## Design links
+- Village test scene (walkable cells, emoji NPCs): `../docs/18-village-test-scene.md`.
 - Recovery and status treatment: `00-gameplay-improvements.md` §4.
 - Inventory categories and equip preview: `00-gameplay-improvements.md` §5.1.
 - Rumors and keywords: `00-gameplay-improvements.md` §2.1–2.3.

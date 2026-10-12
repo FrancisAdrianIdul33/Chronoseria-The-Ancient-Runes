@@ -21,9 +21,22 @@ public final class GamePanel extends JPanel {
     private Screen screen = Screen.TITLE;
     private int menuIndex;
     private final String[] menuItems = {"New Game", "Load Game", "Continue", "Chronicles", "Bestiary", "Settings"};
+    private final VillageScene village = new VillageScene();
+    private InputManager input;
+
+    public void attachInput(InputManager input) {
+        this.input = input;
+    }
+
+    public boolean isGame() {
+        return screen == Screen.GAME;
+    }
 
     public void tick() {
         tick++;
+        if (screen == Screen.GAME && input != null) {
+            village.update(input);
+        }
         repaint();
     }
 
@@ -50,6 +63,7 @@ public final class GamePanel extends JPanel {
     }
 
     public void startGame() {
+        village.reset();
         screen = Screen.GAME;
     }
 
@@ -67,7 +81,9 @@ public final class GamePanel extends JPanel {
     }
 
     public void menuSelect() {
-        screen = Screen.GAME;
+        if (menuIndex == 0 || menuIndex == 2) {
+            startGame();
+        }
     }
 
     @Override
@@ -87,21 +103,7 @@ public final class GamePanel extends JPanel {
     }
 
     private void drawGame(Graphics2D g2) {
-        int w = getWidth();
-        g2.setColor(GamePalette.ROYAL_DEEP);
-        g2.fillRect(0, 0, w, getHeight());
-        g2.setColor(GamePalette.ROYAL_BLUE);
-        g2.fillRect(0, 0, w, 60);
-        g2.setColor(GamePalette.PARCHMENT);
-        g2.setFont(new Font(Font.SERIF, Font.BOLD, 14));
-        g2.drawString("Chronoseria: The Ancient Runes  (ESC=menu)", 16, 36);
-        g2.setColor(GamePalette.ROYAL_BLUE.brighter());
-        for (int x = 0; x < w; x += 16) {
-            g2.drawLine(x, 70, x, getHeight());
-        }
-        for (int y = 70; y < getHeight(); y += 16) {
-            g2.drawLine(0, y, w, y);
-        }
+        village.render(g2, getWidth(), getHeight(), tick);
     }
 
     private void drawMenu(Graphics2D g2) {
