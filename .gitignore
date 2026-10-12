@@ -1,5 +1,7 @@
 out/
 .idea/workspace.xml
 .idea/tasks.xml
+.idea/vcs.xml
+.idea/.gitignore
 *.log
 *.class
