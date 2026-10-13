@@ -28,6 +28,10 @@ public final class VillageScene {
     static final int VIEW_TY = 12;
     static final int SCALE = 2; // whole-number scale only
     static final int STEP_TICKS = 12; // ~0.2s per cell at 60 UPS
+    static final int NPC_STEP_TICKS = 18; // villagers stroll slower than the player
+    static final int NPC_BLOCK_DIST = 2; // Manhattan range that counts as "in the way"
+    static final int NPC_FOLLOW_DIST = 4; // tailing range: same line behind counts as pressing
+    static final int NPC_RESUME_DIST = 4; // player must be this far before resuming
     static final int ANIM_TICKS = 6; // walk clock, separate from movement
     static final int MSG_TICKS = 300;
     static final int SPAWN_C = 15;
@@ -70,14 +74,39 @@ public final class VillageScene {
         }
     }
 
+    /** Villager mind: ordinary routine, yields only when blocking the player. */
+    enum NpcState { IDLE, WANDER, TALKING, MOVE_ASIDE, BACK_UP, PASS_THROUGH }
+
     static final class Npc {
         final String name;
-        final int cx, cy;
-        final String line;
+        final String[] lines; // dialogue stages, cycles 0..n
         final Color clothes;
-        Npc(String name, int cx, int cy, String line, Color clothes) {
-            this.name = name; this.cx = cx; this.cy = cy;
-            this.line = line; this.clothes = clothes;
+        final boolean mind; // true = wanders/yields (pilot), false = stands still
+        final int[][] zone; // home territory haunts; keeps villagers scattered
+        int col, row; // grid cell (spawn = build position)
+        Dir facing = Dir.DOWN;
+        NpcState state = NpcState.IDLE;
+        boolean stepping;
+        int fromC, fromR, toC, toR, stepT;
+        double renderCx, renderCy;
+        int idleT; // ticks left before choosing a wander target
+        int asideCd; // cooldown after yielding, stops jitter
+        int avoidCd; // minute gate: one dodge per 3600 ticks max
+        int pushT; // sustained-pressure accumulator; break-away at threshold
+        boolean breaking; // committed escape flight, don't reroute mid-way
+        int stage; // dialogue stage
+        java.util.ArrayDeque<int[]> path; // BFS steps to wander target
+        java.util.ArrayDeque<int[]> trail = new java.util.ArrayDeque<>(); // recent cells
+        int safeC, safeR; // last wide cell (a free side neighbor exists)
+        Npc(String name, int cx, int cy, Color clothes, boolean mind, int[][] zone, String... lines) {
+            this.name = name; this.col = cx; this.row = cy;
+            this.safeC = cx; this.safeR = cy;
+            this.clothes = clothes; this.mind = mind; this.zone = zone; this.lines = lines;
+            snap();
+        }
+        void snap() {
+            renderCx = col * TILE + TILE / 2.0;
+            renderCy = row * TILE + TILE / 2.0;
         }
     }
 
@@ -115,6 +144,10 @@ public final class VillageScene {
 
     private String message = "";
     private int msgTimer;
+    private Npc talkingNpc; // villager currently in dialogue, or null
+    private int stuckT; // ticks the player pushes into a block with no progress
+    private int lastPc = -1, lastPr = -1;
+    private final java.util.Random rng = new java.util.Random(7); // fixed routine seed
 
     // ---- Input edge tracking (held-state, no key repeat) ----
     private boolean prevUp, prevDown, prevLeft, prevRight, prevF3;
@@ -380,13 +413,36 @@ public final class VillageScene {
         fences.add(new int[]{16, 23}); fences.add(new int[]{16, 24});
         for (int[] f : fences) solid[f[0]][f[1]] = true;
 
-        // NPCs near paths, never on entrances (solid cells).
-        npcs.add(new Npc("MIRA", 14, 19, "Mira: \"The blue roof is the Inn.\"", VillagePalette.WATER));
-        npcs.add(new Npc("Bram", 16, 12, "Bram: \"Fountain's east. Shops are warm.\"", VillagePalette.ROOF_WEAPON));
-        npcs.add(new Npc("ODD", 16, 13, "Odd: \"Stay on the road.\"", VillagePalette.ROOF_MAGIC));
-        npcs.add(new Npc("Pip", 14, 28, "Pip: \"South road goes everywhere.\"", VillagePalette.ROOF_ITEM));
-        npcs.add(new Npc("Sol", 9, 7, "Sol: \"Knock twice at the Inn.\"", VillagePalette.ROOF_HOUSE));
-        for (Npc n : npcs) solid[n.cx][n.cy] = true;
+        // NPCs spread over every part of the village, each with a home zone.
+        npcs.add(new Npc("MIRA", 14, 19, VillagePalette.WATER, true,
+                new int[][]{{14, 19}, {14, 22}, {18, 18}, {20, 19}},
+                "Mira: \"Good day! The village is peaceful today.\"",
+                "Mira: \"The inn is north up the road if you need a rest.\"",
+                "Mira: \"It is nice to see new faces around here.\""));
+        npcs.add(new Npc("Bram", 16, 12, VillagePalette.ROOF_WEAPON, true,
+                new int[][]{{20, 8}, {14, 12}, {9, 11}, {6, 10}},
+                "Bram: \"Fountain's east. Shops are warm.\"",
+                "Bram: \"Shops line the north ridge. Mind the walls.\"",
+                "Bram: \"Odd says stay on the road. He's right.\""));
+        npcs.add(new Npc("ODD", 16, 13, VillagePalette.ROOF_MAGIC, true,
+                new int[][]{{18, 18}, {20, 19}, {14, 22}, {16, 13}},
+                "Odd: \"Stay on the road.\"",
+                "Odd: \"The gate is one tile wide. Single file.\"",
+                "Odd: \"Walls are solid. Don't bother pushing.\""));
+        npcs.add(new Npc("Pip", 14, 28, VillagePalette.ROOF_ITEM, true,
+                new int[][]{{14, 28}, {14, 27}, {18, 27}, {14, 22}},
+                "Pip: \"South road goes everywhere.\"",
+                "Pip: \"I saw the fountain glittering yesterday.\"",
+                "Pip: \"Plaza's west. Can't miss it.\""));
+        npcs.add(new Npc("Sol", 9, 7, VillagePalette.ROOF_HOUSE, true,
+                new int[][]{{5, 8}, {9, 8}, {4, 10}, {6, 10}, {9, 7}, {9, 11}},
+                "Sol: \"Knock twice at the Inn.\"",
+                "Sol: \"Blue roof, north side. That's the one.\"",
+                "Sol: \"Quiet today. Good.\""));
+        for (Npc n : npcs) {
+            n.idleT = 120 + rng.nextInt(180);
+            solid[n.col][n.row] = true;
+        }
 
         // ---- 12. Validation (never remove) ----
         assertDoorsReachable();
@@ -496,7 +552,7 @@ public final class VillageScene {
             if (!isInsideMap(w[0], w[1])) throw new IllegalStateException("Bound outside map");
         }
         for (Npc n : npcs) {
-            if (!isInsideMap(n.cx, n.cy)) throw new IllegalStateException("NPC outside map");
+            if (!isInsideMap(n.col, n.row)) throw new IllegalStateException("NPC outside map");
         }
     }
 
@@ -522,23 +578,23 @@ public final class VillageScene {
         assertTopWallContinuous();
         for (Npc n : npcs) {
             for (int[] t : trees) {
-                if (n.cx == t[0] && n.cy == t[1]) {
-                    throw new IllegalStateException("npc " + n.name + " on tree at " + n.cx + "," + n.cy);
+                if (n.col == t[0] && n.row == t[1]) {
+                    throw new IllegalStateException("npc " + n.name + " on tree at " + n.col + "," + n.row);
                 }
             }
             for (int[] w : wallTops) {
-                if (n.cx == w[0] && n.cy == w[1]) {
-                    throw new IllegalStateException("npc " + n.name + " on wallTop at " + n.cx + "," + n.cy);
+                if (n.col == w[0] && n.row == w[1]) {
+                    throw new IllegalStateException("npc " + n.name + " on wallTop at " + n.col + "," + n.row);
                 }
             }
             for (int[] w : wallBodies) {
-                if (n.cx == w[0] && n.cy == w[1]) {
-                    throw new IllegalStateException("npc " + n.name + " on wallBrick at " + n.cx + "," + n.cy);
+                if (n.col == w[0] && n.row == w[1]) {
+                    throw new IllegalStateException("npc " + n.name + " on wallBrick at " + n.col + "," + n.row);
                 }
             }
         }
         for (int[] f : fences) assertNotOnPath(f[0], f[1], "fence");
-        for (Npc n : npcs) assertNotOnPath(n.cx, n.cy, "npc " + n.name);
+        for (Npc n : npcs) assertNotOnPath(n.col, n.row, "npc " + n.name);
         assertContainedInT();
     }
 
@@ -558,7 +614,7 @@ public final class VillageScene {
         }
         for (int[] t : trees) assertNotOnWall(t[0], t[1], "tree");
         for (int[] f : fences) assertNotOnWall(f[0], f[1], "fence");
-        for (Npc n : npcs) assertNotOnWall(n.cx, n.cy, "npc " + n.name);
+        for (Npc n : npcs) assertNotOnWall(n.col, n.row, "npc " + n.name);
     }
 
     private void assertNotOnWall(int x, int y, String what) {
@@ -745,6 +801,8 @@ public final class VillageScene {
         }
 
         if (in.drainTalkPressed()) interact();
+        trackStuck(want);
+        updateNpcs();
         boolean f3 = in.isHeld(KeyEvent.VK_F3);
         if (f3 && !prevF3) debug = !debug;
         prevF3 = f3;
@@ -776,6 +834,7 @@ public final class VillageScene {
         for (Building b : buildings) {
             if (col == b.enterX && row == b.enterY && facing == Dir.UP
                     && col + facing.dx == b.doorX && row + facing.dy == b.doorY) {
+                talkingNpc = null;
                 message = b.blurb;
                 msgTimer = MSG_TICKS;
                 return;
@@ -784,14 +843,583 @@ public final class VillageScene {
         int fx = col + facing.dx;
         int fy = row + facing.dy;
         for (Npc n : npcs) {
-            if (fx == n.cx && fy == n.cy) {
-                message = n.line;
+            if (fx == n.col && fy == n.row) {
+                // Face each other, freeze the routine, advance one dialogue stage.
+                n.state = NpcState.TALKING;
+                n.breaking = false;
+                n.stepping = false;
+                n.snap(); // logical cell already moved at step begin; re-sync render
+                n.facing = dirTo(n.col, n.row, col, row);
+                talkingNpc = n;
+                message = n.lines[n.stage % n.lines.length];
+                n.stage++;
                 msgTimer = MSG_TICKS;
                 return;
             }
         }
+        talkingNpc = null;
         message = "Stand on a doorstep facing the door, then press E.";
         msgTimer = MSG_TICKS / 2;
+    }
+
+    private static Dir dirTo(int fromC, int fromR, int toC, int toR) {
+        int dx = toC - fromC;
+        int dy = toR - fromR;
+        if (Math.abs(dx) >= Math.abs(dy)) return dx >= 0 ? Dir.RIGHT : Dir.LEFT;
+        return dy >= 0 ? Dir.DOWN : Dir.UP;
+    }
+
+    /** Stuck watch: pushing a held direction with zero cell progress. */
+    private void trackStuck(Dir want) {
+        if (col != lastPc || row != lastPr) {
+            stuckT = 0;
+            lastPc = col;
+            lastPr = row;
+            return;
+        }
+        if (want == null) {
+            stuckT = 0;
+            return;
+        }
+        if (++stuckT >= 30) {
+            stuckT = 0;
+            forceYield();
+        }
+    }
+
+    /**
+     * Anti-wall override: player fully stuck nose-to-block. Every villager in
+     * the facing path yields once, nearest first, minute gate bypassed (it
+     * re-arms after, so no spam). Talkers are never grabbed mid-dialogue.
+     */
+    private void forceYield() {
+        for (int step = 1; step <= 2; step++) {
+            int tc = col + facing.dx * step;
+            int ty = row + facing.dy * step;
+            for (Npc n : npcs) {
+                if (!n.mind || n.state == NpcState.TALKING || n.stepping) continue;
+                if (n.col == tc && n.row == ty) {
+                    n.asideCd = 0;
+                    n.avoidCd = 0;
+                    yieldStep(n, false);
+                }
+            }
+        }
+    }
+
+    /** Another villager within Manhattan range (for spacing rules). */
+    private boolean npcNear(Npc self, int c, int r, int range) {
+        for (Npc o : npcs) {
+            if (o != self && Math.abs(o.col - c) + Math.abs(o.row - r) <= range) return true;
+        }
+        return false;
+    }
+
+    private void updateNpcs() {
+        for (Npc n : npcs) {
+            if (!n.mind) continue;
+            if (n.stepping) {
+                stepNpc(n);
+                continue;
+            }
+            if (n.state == NpcState.TALKING) {
+                n.facing = dirTo(n.col, n.row, col, row);
+                if (talkingNpc != n || msgTimer == 0) {
+                    n.state = NpcState.IDLE;
+                    n.idleT = 60 + rng.nextInt(120);
+                }
+                continue;
+            }
+            if (n.asideCd > 0) n.asideCd--;
+            if (n.avoidCd > 0) n.avoidCd--;
+            boolean pressing = playerPressing(n);
+            // Herding accumulator: sustained pressing breaks into committed escape.
+            if (pressing) n.pushT++;
+            else if (n.pushT > 0) n.pushT -= 2;
+            if (playerDist(n) > NPC_RESUME_DIST) n.pushT = 0;
+            // Cornered player: a villager on an exit cell clears 2-3 chained
+            // steps, gates bypassed (they re-arm, so no spam). Never replan a
+            // queue already being walked (pass-through or clearing in flight).
+            boolean midQueue = (n.state == NpcState.MOVE_ASIDE || n.state == NpcState.BACK_UP
+                    || n.state == NpcState.PASS_THROUGH) && n.path != null && !n.path.isEmpty();
+            if (!midQueue && playerPocketed() && playerDist(n) == 1) {
+                n.asideCd = 0;
+                n.avoidCd = 0;
+                if (cornerClear(n)) continue;
+            }
+            // Herded over and over: break away once toward open ground.
+            if (!n.breaking && n.pushT >= 90) {
+                if (startBreakaway(n)) continue;
+            }
+            // Yield pressure, at most one dodge per minute per villager.
+            if (!n.breaking && n.asideCd == 0 && n.avoidCd == 0 && pressing) {
+                if (yieldStep(n, followedByPlayer(n))) continue;
+            }
+            switch (n.state) {
+                case IDLE -> {
+                    if (isWide(n.col, n.row, n)) {
+                        n.safeC = n.col;
+                        n.safeR = n.row;
+                    }
+                    if (playerDist(n) > NPC_RESUME_DIST && n.idleT > 0 && --n.idleT > 0) break;
+                    if (playerDist(n) <= NPC_RESUME_DIST) {
+                        n.idleT = Math.max(n.idleT, 30);
+                        break;
+                    }
+                    int[] target = pickHaunt(n);
+                    if (target == null) {
+                        n.idleT = 120 + rng.nextInt(180);
+                        n.facing = Dir.values()[rng.nextInt(4)];
+                        break;
+                    }
+                    n.path = findPath(n, target[0], target[1]);
+                    if (n.path == null || n.path.isEmpty()) {
+                        n.idleT = 120 + rng.nextInt(120);
+                        break;
+                    }
+                    n.state = NpcState.WANDER;
+                }
+                case WANDER -> {
+                    if (n.path == null || n.path.isEmpty()) {
+                        n.state = NpcState.IDLE;
+                        n.breaking = false;
+                        n.idleT = 120 + rng.nextInt(240); // rest 2-6s, then look around
+                        n.facing = Dir.values()[rng.nextInt(4)];
+                        break;
+                    }
+                    int[] next = n.path.peek();
+                    if (npcStepBlocked(n, next[0], next[1])) {
+                        n.path = findPath(n, n.path.getLast()[0], n.path.getLast()[1]);
+                        if (n.path == null) {
+                            n.state = NpcState.IDLE;
+                            n.idleT = 90 + rng.nextInt(90);
+                        }
+                        break;
+                    }
+                    n.path.poll();
+                    beginNpcStep(n, next[0], next[1]);
+                }
+                case MOVE_ASIDE, BACK_UP -> {
+                    // Chained clearing (corner exits): consume the queue first.
+                    if (n.path != null && !n.path.isEmpty()) {
+                        int[] next = n.path.peek();
+                        boolean isPlayerCell = (next[0] == col && next[1] == row);
+                        if (!isPlayerCell && npcStepBlocked(n, next[0], next[1])) {
+                            n.path = null;
+                        } else {
+                            n.path.poll();
+                            beginNpcStep(n, next[0], next[1]);
+                            break;
+                        }
+                    }
+                    // Arrived: wait for the player to pass at resume distance.
+                    if (playerDist(n) > NPC_RESUME_DIST) {
+                        n.state = NpcState.IDLE;
+                        n.idleT = 60 + rng.nextInt(120);
+                    } else {
+                        n.idleT = 30;
+                        n.state = NpcState.IDLE;
+                    }
+                }
+                case PASS_THROUGH -> {
+                    // Squeezing past: step queue is player cell, then beyond.
+                    // Only the player's live cell is bypassed; walls/NPCs still abort.
+                    if (n.path == null || n.path.isEmpty()) {
+                        n.state = NpcState.IDLE;
+                        n.idleT = 60 + rng.nextInt(120);
+                        break;
+                    }
+                    int[] next = n.path.peek();
+                    boolean isPlayerCell = (next[0] == col && next[1] == row);
+                    if (!isPlayerCell && npcStepBlocked(n, next[0], next[1])) {
+                        n.path = null;
+                        n.state = NpcState.IDLE;
+                        n.idleT = 60 + rng.nextInt(60);
+                        break;
+                    }
+                    n.path.poll();
+                    beginNpcStep(n, next[0], next[1]);
+                }
+                case TALKING -> { // handled above; unreachable here
+                }
+            }
+        }
+    }
+
+    private int playerDist(Npc n) {
+        return Math.abs(col - n.col) + Math.abs(row - n.row);
+    }
+
+    /** True when the player is close and heading into the villager's cell. */
+    private boolean playerBlockedBy(Npc n) {
+        if (playerDist(n) > NPC_BLOCK_DIST) return false;
+        // Facing cell match (standing or turning toward the villager).
+        if (col + facing.dx == n.col && row + facing.dy == n.row) return true;
+        // Mid-step into the villager.
+        if (stepping && toC == n.col && toR == n.row) return true;
+        return false;
+    }
+
+    /** Tailed in a straight line: stepping behind within range, villager ahead. */
+    private boolean followedByPlayer(Npc n) {
+        int dist = playerDist(n);
+        if (dist < 2 || dist > NPC_FOLLOW_DIST || !stepping) return false;
+        int ahead = (n.col - col) * facing.dx + (n.row - row) * facing.dy;
+        if (ahead <= 0) return false;
+        int side = Math.abs((n.col - col) * facing.dy - (n.row - row) * facing.dx);
+        return side <= 1;
+    }
+
+    /** Closing in from any side: this step shortens the distance to the villager. */
+    private boolean playerClosing(Npc n) {
+        if (playerDist(n) > NPC_BLOCK_DIST || !stepping) return false;
+        int next = Math.abs(toC - n.col) + Math.abs(toR - n.row);
+        return next < playerDist(n);
+    }
+
+    private boolean playerPressing(Npc n) {
+        return playerBlockedBy(n) || playerClosing(n) || followedByPlayer(n);
+    }
+
+    /**
+     * One polite step: free side cells first (MOVE_ASIDE), else the cell behind
+     * the approach (BACK_UP toward the last wide spot). Never onto doors,
+     * entrances, the player, walls, or other villagers. A tailed dodge chains:
+     * short cooldown so it keeps sidestepping while followed, and the stale
+     * wander path is dropped so it never walks straight back into the tail.
+     */
+    private boolean yieldStep(Npc n, boolean chased) {
+        int px = col + facing.dx; // where the player is pressing toward
+        int py = row + facing.dy;
+        boolean comingNorth = py < n.row;
+        int[][] sides = comingNorth || py != n.row
+                ? new int[][]{{n.col - 1, n.row}, {n.col + 1, n.row}, {n.col, n.row + 1}}
+                : new int[][]{{n.col, n.row - 1}, {n.col, n.row + 1}, {n.col + (n.col >= col ? 1 : -1), n.row}};
+        for (int[] s : sides) {
+            if (npcRestFree(n, s[0], s[1]) && !(s[0] == px && s[1] == py)
+                    && !npcNear(n, s[0], s[1], 1)) {
+                beginNpcStep(n, s[0], s[1]);
+                n.state = NpcState.MOVE_ASIDE;
+                n.breaking = false;
+                n.path = null;
+                n.asideCd = chased ? 10 : NPC_STEP_TICKS + 30;
+                n.avoidCd = 3600; // one dodge per minute
+                return true;
+            }
+        }
+        // Second pass: any free side cell, even beside another villager.
+        for (int[] s : sides) {
+            if (npcRestFree(n, s[0], s[1]) && !(s[0] == px && s[1] == py)) {
+                beginNpcStep(n, s[0], s[1]);
+                n.state = NpcState.MOVE_ASIDE;
+                n.breaking = false;
+                n.path = null;
+                n.asideCd = chased ? 10 : NPC_STEP_TICKS + 30;
+                n.avoidCd = 3600; // one dodge per minute
+                return true;
+            }
+        }
+        // Nose-to-nose deadlock: pass THROUGH — player cell, then the cell
+        // beyond along the villager's heading (2 steps forward). Beyond must be
+        // free terrain with no other villager; the player's live cell is the
+        // only bypass, consumed by the PASS_THROUGH state.
+        boolean faceToFace = (col + facing.dx == n.col && row + facing.dy == n.row)
+                && (n.col + n.facing.dx == col && n.row + n.facing.dy == row);
+        if (faceToFace) {
+            int midC = n.col + n.facing.dx; // == player cell when nose-to-nose
+            int midR = n.row + n.facing.dy;
+            int bx = n.col + 2 * n.facing.dx; // cell beyond the player
+            int by = n.row + 2 * n.facing.dy;
+            if (isInsideMap(bx, by) && !solid[bx][by] && !npcAt(bx, by, n)
+                    && !isDoorOrEntrance(bx, by)) {
+                java.util.ArrayDeque<int[]> pass = new java.util.ArrayDeque<>();
+                pass.add(new int[]{midC, midR});
+                pass.add(new int[]{bx, by});
+                n.path = pass;
+                n.state = NpcState.PASS_THROUGH;
+                n.breaking = false;
+                n.asideCd = NPC_STEP_TICKS + 30;
+                n.avoidCd = 3600; // one dodge per minute
+                return true;
+            }
+        }
+        // Player directly behind in a squeeze: one step forward if free.
+        if (col == n.col - n.facing.dx && row == n.row - n.facing.dy) {
+            int fx = n.col + n.facing.dx;
+            int fy = n.row + n.facing.dy;
+            if (npcRestFree(n, fx, fy)) {
+                beginNpcStep(n, fx, fy);
+                n.state = NpcState.MOVE_ASIDE;
+                n.path = null;
+                n.asideCd = NPC_STEP_TICKS + 30;
+                n.avoidCd = 3600; // one dodge per minute
+                return true;
+            }
+        }
+        // 1-wide: back away from the player toward the last wide spot.
+        int bx = n.col - facing.dx;
+        int by = n.row - facing.dy;
+        if (npcRestFree(n, bx, by)) {
+            beginNpcStep(n, bx, by);
+            n.state = NpcState.BACK_UP;
+            n.breaking = false;
+            n.path = null;
+            n.asideCd = chased ? 10 : NPC_STEP_TICKS + 30;
+            n.avoidCd = 3600; // one dodge per minute
+            return true;
+        }
+        return false;
+    }
+
+    /** Pocketed player: one or zero walkable neighbors (villagers count as walls). */
+    private boolean playerPocketed() {
+        int free = 0;
+        int[][] adj = {{col + 1, row}, {col - 1, row}, {col, row + 1}, {col, row - 1}};
+        for (int[] a : adj) {
+            if (isInsideMap(a[0], a[1]) && !solid[a[0]][a[1]]) free++;
+        }
+        return free <= 1;
+    }
+
+    /**
+     * Corner exit: chained 2-3 steps to the nearest standing cell at least 3
+     * from the player, leaving the exit line. BFS shortest-first over steppable
+     * cells (never through the player); gates already bypassed by the caller.
+     */
+    private boolean cornerClear(Npc n) {
+        boolean[][] seen = new boolean[MAP_W][MAP_H];
+        int[][] px = new int[MAP_W][MAP_H];
+        int[][] py = new int[MAP_W][MAP_H];
+        int[][] depth = new int[MAP_W][MAP_H];
+        java.util.ArrayDeque<int[]> q = new java.util.ArrayDeque<>();
+        q.add(new int[]{n.col, n.row});
+        seen[n.col][n.row] = true;
+        int[] dx = {1, -1, 0, 0};
+        int[] dy = {0, 0, 1, -1};
+        while (!q.isEmpty()) {
+            int[] cur = q.poll();
+            int d = depth[cur[0]][cur[1]];
+            if (d > 0 && d <= 6 && npcRestFree(n, cur[0], cur[1])
+                    && Math.abs(cur[0] - col) + Math.abs(cur[1] - row) >= 3) {
+                java.util.ArrayDeque<int[]> steps = new java.util.ArrayDeque<>();
+                int[] c = cur;
+                while (!(c[0] == n.col && c[1] == n.row)) {
+                    steps.addFirst(c);
+                    c = new int[]{px[c[0]][c[1]], py[c[0]][c[1]]};
+                }
+                n.path = steps;
+                n.state = NpcState.MOVE_ASIDE;
+                n.breaking = false;
+                n.asideCd = 10;
+                n.avoidCd = 3600; // counts as the minute's dodge
+                return true;
+            }
+            if (d == 6) continue;
+            for (int i = 0; i < 4; i++) {
+                int nx = cur[0] + dx[i];
+                int ny = cur[1] + dy[i];
+                if (!isInsideMap(nx, ny) || seen[nx][ny]) continue;
+                if (nx == col && ny == row) continue; // never route through the player
+                if (solid[nx][ny] && !(nx == n.col && ny == n.row)) continue;
+                boolean occ = false;
+                for (Npc o : npcs) {
+                    if (o != n && o.col == nx && o.row == ny) {
+                        occ = true;
+                        break;
+                    }
+                }
+                if (occ) continue;
+                seen[nx][ny] = true;
+                px[nx][ny] = cur[0];
+                py[nx][ny] = cur[1];
+                depth[nx][ny] = d + 1;
+                q.add(new int[]{nx, ny});
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Herded over and over: commit to the reachable zone cell with the most
+     * separation plus open neighbors, face it at once, stroll there. Counts as
+     * the minute's dodge.
+     */
+    private boolean startBreakaway(Npc n) {
+        int bestScore = -1;
+        int[] best = null;
+        java.util.ArrayDeque<int[]> bestPath = null;
+        int start = rng.nextInt(n.zone.length);
+        for (int i = 0; i < n.zone.length; i++) {
+            int[] h = n.zone[(start + i) % n.zone.length];
+            int d = Math.abs(h[0] - col) + Math.abs(h[1] - row);
+            if (d <= playerDist(n)) continue;
+            if (!npcRestFree(n, h[0], h[1])) continue;
+            java.util.ArrayDeque<int[]> p = findPath(n, h[0], h[1]);
+            if (p == null || p.isEmpty()) continue;
+            int open = 0;
+            int[][] adj = {{h[0] + 1, h[1]}, {h[0] - 1, h[1]}, {h[0], h[1] + 1}, {h[0], h[1] - 1}};
+            for (int[] a : adj) {
+                if (npcRestFree(n, a[0], a[1])) open++;
+            }
+            int score = d + 2 * open;
+            if (score > bestScore) {
+                bestScore = score;
+                best = h;
+                bestPath = p;
+            }
+        }
+        if (bestPath == null) return false;
+        n.path = bestPath;
+        n.state = NpcState.WANDER;
+        n.breaking = true;
+        n.facing = dirTo(n.col, n.row, best[0], best[1]);
+        n.pushT = 0;
+        n.asideCd = 10;
+        n.avoidCd = 3600; // counts as the minute's dodge
+        return true;
+    }
+
+    /** Another villager's logical cell (mid-tween positions already moved). */
+    private boolean npcAt(int c, int r, Npc self) {
+        for (Npc o : npcs) {
+            if (o != self && o.col == c && o.row == r) return true;
+        }
+        return false;
+    }
+
+    /** A cell the villager may stand on: walkable, unoccupied, never a doorway. */
+    private boolean npcRestFree(Npc self, int c, int r) {
+        if (!isInsideMap(c, r) || solid[c][r]) return false;
+        if (c == col && r == row) return false; // the player
+        for (Npc o : npcs) {
+            if (o != self && o.col == c && o.row == r) return false;
+        }
+        return !isDoorOrEntrance(c, r);
+    }
+
+    private boolean npcStepBlocked(Npc self, int c, int r) {
+        if (!isInsideMap(c, r)) return true;
+        if (solid[c][r] && !(c == self.col && r == self.row)) return true;
+        if (c == col && r == row) return true;
+        for (Npc o : npcs) {
+            if (o != self && o.col == c && o.row == r) return true;
+        }
+        return false;
+    }
+
+    private boolean isDoorOrEntrance(int c, int r) {
+        for (Building b : buildings) {
+            if ((c == b.doorX && r == b.doorY) || (c == b.enterX && r == b.enterY)) return true;
+        }
+        return false;
+    }
+
+    /** Wide cell: at least one free standing neighbor (room to let someone pass). */
+    private boolean isWide(int c, int r, Npc self) {
+        int[][] adj = {{c + 1, r}, {c - 1, r}, {c, r + 1}, {c, r - 1}};
+        for (int[] a : adj) {
+            if (npcRestFree(self, a[0], a[1])) return true;
+        }
+        return false;
+    }
+
+    private int[] pickHaunt(Npc n) {
+        // Two passes over the home zone: first haunts no closer to the player
+        // than now (never walk back into a tail), then anything reachable.
+        // Zones keep the five villagers scattered over every part of the village.
+        for (int pass = 0; pass < 2; pass++) {
+            int start = rng.nextInt(n.zone.length);
+            for (int i = 0; i < n.zone.length; i++) {
+                int[] h = n.zone[(start + i) % n.zone.length];
+                if ((h[0] == n.col && h[1] == n.row) || Math.abs(h[0] - n.col) + Math.abs(h[1] - n.row) > 12) continue;
+                // Never rest shoulder-to-shoulder on walked ground: on path-kind
+                // tiles keep one cell clear of other villagers (pass 1 may relax).
+                if (pass == 0 && isPathKind(h[0], h[1]) && npcNear(n, h[0], h[1], 1)) continue;
+                if ((h[0] == n.col && h[1] == n.row) || Math.abs(h[0] - n.col) + Math.abs(h[1] - n.row) > 12) continue;
+                if (pass == 0 && playerDist(n) <= NPC_FOLLOW_DIST + 2
+                        && Math.abs(h[0] - col) + Math.abs(h[1] - row) < playerDist(n)) continue;
+                if (!npcRestFree(n, h[0], h[1])) continue;
+                if (findPath(n, h[0], h[1]) == null) continue;
+                return h;
+            }
+        }
+        return null;
+    }
+
+    /** BFS over walkable cells; returns steps from (not incl.) start to target. */
+    private java.util.ArrayDeque<int[]> findPath(Npc self, int tc, int tr) {
+        if (!isInsideMap(tc, tr)) return null;
+        int[][] prev = new int[MAP_W * MAP_H][2];
+        boolean[][] seen = new boolean[MAP_W][MAP_H];
+        java.util.ArrayDeque<int[]> q = new java.util.ArrayDeque<>();
+        q.add(new int[]{self.col, self.row});
+        seen[self.col][self.row] = true;
+        prev[self.col * MAP_H + self.row] = new int[]{-1, -1};
+        int[] dx = {1, -1, 0, 0};
+        int[] dy = {0, 0, 1, -1};
+        while (!q.isEmpty()) {
+            int[] cur = q.poll();
+            if (cur[0] == tc && cur[1] == tr) break;
+            for (int i = 0; i < 4; i++) {
+                int nx = cur[0] + dx[i];
+                int ny = cur[1] + dy[i];
+                if (!isInsideMap(nx, ny) || seen[nx][ny]) continue;
+                if (nx == col && ny == row) continue; // never route through the player
+                if (solid[nx][ny] && !(nx == self.col && ny == self.row)) continue;
+                boolean occ = false;
+                for (Npc o : npcs) {
+                    if (o != self && o.col == nx && o.row == ny) {
+                        occ = true;
+                        break;
+                    }
+                }
+                if (occ && !(nx == tc && ny == tr)) continue;
+                seen[nx][ny] = true;
+                prev[nx * MAP_H + ny] = cur;
+                q.add(new int[]{nx, ny});
+            }
+        }
+        if (!seen[tc][tr]) return null;
+        java.util.ArrayDeque<int[]> steps = new java.util.ArrayDeque<>();
+        int[] cur = new int[]{tc, tr};
+        while (!(cur[0] == self.col && cur[1] == self.row)) {
+            steps.addFirst(cur);
+            cur = prev[cur[0] * MAP_H + cur[1]];
+        }
+        return steps;
+    }
+
+    private void beginNpcStep(Npc n, int tc, int tr) {
+        // Logical cell moves now (solid follows immediately) so a second walker
+        // can never route into the vacating cell mid-tween; render catches up.
+        solid[n.col][n.row] = false;
+        n.fromC = n.col;
+        n.fromR = n.row;
+        n.col = tc;
+        n.row = tr;
+        n.toC = tc;
+        n.toR = tr;
+        solid[tc][tr] = true;
+        n.stepping = true;
+        n.stepT = 0;
+        n.facing = dirTo(n.fromC, n.fromR, tc, tr);
+    }
+
+    private void stepNpc(Npc n) {
+        n.stepT++;
+        double t = Math.min(1.0, n.stepT / (double) NPC_STEP_TICKS);
+        n.renderCx = (n.fromC * TILE + TILE / 2.0) + (n.toC - n.fromC) * TILE * t;
+        n.renderCy = (n.fromR * TILE + TILE / 2.0) + (n.toR - n.fromR) * TILE * t;
+        if (n.stepT >= NPC_STEP_TICKS) {
+            n.snap();
+            n.stepping = false;
+            n.trail.addLast(new int[]{n.col, n.row});
+            while (n.trail.size() > 6) n.trail.pollFirst();
+            if (isWide(n.col, n.row, n)) {
+                n.safeC = n.col;
+                n.safeR = n.row;
+            }
+        }
     }
 
     // ---- 3. Camera ----
@@ -876,11 +1504,11 @@ public final class VillageScene {
                         .add(() -> drawFence(g2, offX, offY, f[0], f[1]));
             }
             for (Npc n : npcs) {
-                int baseY = (n.cy + 1) * TILE;
+                int baseY = (int) (n.renderCy + 13);
                 order.computeIfAbsent(baseY * 4 + 3, k -> new java.util.ArrayList<>())
                         .add(() -> drawNpc(g2, offX, offY, n));
             }
-            int playerBase = (int) (renderCy + 6);
+            int playerBase = (int) (renderCy + 13);
             order.computeIfAbsent(playerBase * 4 + 3, k -> new java.util.ArrayList<>())
                     .add(() -> drawPlayer(g2, offX, offY));
             for (java.util.List<Runnable> batch : order.values()) {
@@ -1211,42 +1839,62 @@ public final class VillageScene {
     }
 
     private void drawNpc(Graphics2D g2, int offX, int offY, Npc n) {
-        int x = (int) (offX + (n.cx * TILE + TILE / 2.0 - camX) * SCALE);
-        int y = (int) (offY + (n.cy * TILE + TILE / 2.0 - camY) * SCALE);
-        int s = 5 * SCALE;
-        g2.setColor(VillagePalette.SKIN);
-        g2.fillOval(x - 3, y - s / 2 - 2, 6, 6);
-        g2.setColor(n.clothes);
-        g2.fillRect(x - 4, y - s / 2 + 4, 8, s / 2);
+        int x = (int) (offX + (n.renderCx - camX) * SCALE);
+        int y = (int) (offY + (n.renderCy - camY) * SCALE);
+        int swing = (n.stepping && (n.stepT / 3) % 2 == 0) ? 1 : 0;
         g2.setColor(VillagePalette.OUTLINE_DARK);
-        g2.drawRect(x - 4, y - s / 2 + 4, 7, s / 2 - 1);
+        g2.fillRect(x - 6, y + 6, 5, 7 - swing);
+        g2.fillRect(x + 1, y + 6, 5, 7 + swing);
+        g2.setColor(VillagePalette.SKIN);
+        g2.fillOval(x - 6, y - 19, 12, 12);
+        g2.setColor(n.clothes);
+        g2.fillRect(x - 9, y - 7, 18, 13);
+        g2.setColor(VillagePalette.OUTLINE_DARK);
+        g2.drawRect(x - 9, y - 7, 17, 12);
+        // Facing tick, same language as the player's nose dot.
+        int nx = x, ny = y - 13;
+        switch (n.facing) {
+            case UP -> ny -= 8;
+            case DOWN -> ny += 8;
+            case LEFT -> nx -= 12;
+            case RIGHT -> nx += 12;
+        }
+        g2.fillRect(nx - 1, ny - 1, 2, 2);
+        // White name tag with a dark shadow so it reads on any ground.
         g2.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 9));
-        g2.drawString(n.name, x - 10, y - s / 2 - 6);
+        g2.setColor(VillagePalette.OUTLINE_DARK);
+        g2.drawString(n.name, x - 9, y - 21);
+        g2.setColor(VillagePalette.OUTLINE_OFFWHITE);
+        g2.drawString(n.name, x - 10, y - 22);
     }
 
-    /** 11. Four directions, two walk frames, idle when stopped. */
+    /** 11. Four directions, walk frames. Figure fills one cell (~32px tall). */
     private void drawPlayer(Graphics2D g2, int offX, int offY) {
         int x = (int) (offX + (renderCx - camX) * SCALE);
         int y = (int) (offY + (renderCy - camY) * SCALE);
-        int s = 5 * SCALE;
+        int swing = 0;
         if (stepping) {
+            swing = (walkFrame == 0) ? -3 : 3;
             g2.setColor(VillagePalette.OUTLINE_DARK);
-            int swing = (walkFrame == 0) ? -2 : 2;
-            g2.fillRect(x - 4, y + 2, 3, 4 + swing);
-            g2.fillRect(x + 1, y + 2, 3, 4 - swing);
+            g2.fillRect(x - 6, y + 6, 5, 7 + swing);
+            g2.fillRect(x + 1, y + 6, 5, 7 - swing);
+        } else {
+            g2.setColor(VillagePalette.OUTLINE_DARK);
+            g2.fillRect(x - 6, y + 6, 5, 7);
+            g2.fillRect(x + 1, y + 6, 5, 7);
         }
         g2.setColor(VillagePalette.SKIN);
-        g2.fillOval(x - 3, y - s / 2 - 2, 6, 6);
+        g2.fillOval(x - 6, y - 19, 12, 12);
         g2.setColor(VillagePalette.PLAYER_TUNIC);
-        g2.fillRect(x - 4, y - s / 2 + 4, 8, s / 2);
+        g2.fillRect(x - 9, y - 7, 18, 13);
         g2.setColor(VillagePalette.OUTLINE_OFFWHITE);
-        g2.drawRect(x - 4, y - s / 2 + 4, 7, s / 2 - 1);
-        int nx = x, ny = y - 2;
+        g2.drawRect(x - 9, y - 7, 17, 12);
+        int nx = x, ny = y - 13;
         switch (facing) {
-            case UP -> ny -= s / 2 + 1;
-            case DOWN -> ny += s / 2 + 1;
-            case LEFT -> nx -= s / 2 + 1;
-            case RIGHT -> nx += s / 2 + 1;
+            case UP -> ny -= 8;
+            case DOWN -> ny += 8;
+            case LEFT -> nx -= 12;
+            case RIGHT -> nx += 12;
         }
         g2.fillRect(nx - 1, ny - 1, 2, 2);
     }
@@ -1367,7 +2015,7 @@ public final class VillageScene {
                 pic[w[1]][w[0]] = 'x';
             }
         }
-        for (Npc n : npcs) pic[n.cy][n.cx] = 'N';
+        for (Npc n : npcs) pic[n.row][n.col] = 'N';
         pic[SPAWN_R][SPAWN_C] = 'P';
         System.out.println("MAP 32x32 (col 0..31):");
         for (int y = 0; y < MAP_H; y++) {

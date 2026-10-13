@@ -93,6 +93,28 @@ Counts: `wallTops = 118`, `wallBodies = 60`, `bounds = 0`.
   / `x17-19` leaving grass buffers `x14/x16` so the spine never touches a building.
 - Paths never touch buildings except via entrance cells.
 - NPCs: MIRA `(14,19)`, Bram `(16,12)`, ODD `(16,13)`, Pip `(14,28)`, Sol `(9,7)` — solid, never on doors/trees/paths.
+- Villager minds (all five, zoned): Sol bar-north, Bram junction + lane, ODD
+  corridor, MIRA stem-mid + fountain court, Pip stem-south + gate — each wanders
+  only its home haunts so every part stays covered. `IDLE` 2–5s → `WANDER` BFS → rest
+  2–6s. `TALKING` freezes facing the player with 3 cycling lines. `MOVE_ASIDE`
+  steps to a free side cell (never doors/player/walls) only when blocking an
+  approaching player; `BACK_UP` retreats when pinched. Resume past 4 tiles.
+  Logical cell + `solid[][]` move at step begin (atomic, no mid-tween overlap),
+  render catches up over 18 ticks; calm near the player instead of bustling feet.
+- Yield pressure (any villager): contact block, closing within 2 from any side,
+  or tailing in-line behind within 4 while stepping. Dodges chain on a short
+  cooldown and drop the stale wander path; the next haunt pick biases away from
+  the player so they never walk straight back into a tail. Nose-to-nose with no
+  sides free resolves as `PASS_THROUGH`: 2 scripted steps (your cell, then the
+  cell beyond along their heading, walls/NPCs still abort), so you squeeze past
+  each other instead of deadlocking.
+- Cornered exits: a villager standing on your only way out clears a chained
+  2–3 step path off your exit line (gates bypassed once, then re-armed).
+- Herding: sustained pressing accumulates; at threshold the villager commits to
+  a `break-away` — the reachable zone cell with most separation plus open
+  neighbors — facing it at once and strolling there, ignoring minor re-presses
+  until arrival. Counts as the minute's dodge. At most one dodge per
+  villager per minute (3600-tick gate).
 
 ## 7. Collision quick matrix
 
