@@ -194,6 +194,45 @@ public final class VillageScene {
         solid[c][r] = true;
     }
 
+    // ---- 7a. Perimeter structure: top cap ring + inset top bricks ----
+    private void buildTopWall() {
+        // WALL_TOP caps the full top row; BRICK face ONLY row 1 x1..30.
+        // (0,1)/(31,1) are cap corners so cap meets cap with no T-joint.
+        for (int x = 0; x < MAP_W; x++) {
+            wallTop(x, 0);
+        }
+        wallTop(0, 1);
+        wallTop(MAP_W - 1, 1);
+        for (int x = 1; x < MAP_W - 1; x++) {
+            wallBrick(x, 1);
+        }
+    }
+
+    // ---- 7b. Side caps: visible Wall Top columns, never brick ----
+    private void buildSideCaps() {
+        // Inner cols 1 / 30 stay walkable grass/path (east connector x30 preserved).
+        for (int y = 2; y < MAP_H - 2; y++) {
+            wallTop(0, y);
+            wallTop(MAP_W - 1, y);
+        }
+    }
+
+    // ---- 7c. Front wall: top-to-bottom T then W, corners wrap in brick ----
+    private void buildFrontWall() {
+        // First layer row 30 = caps (gate open), last layer row 31 = bricks
+        // edge-to-edge minus gate, including (0,31)/(31,31) for 3D thickness.
+        for (int x = 0; x < MAP_W; x++) {
+            if (x < 15 || x > 16) {
+                wallTop(x, MAP_H - 2);
+            }
+        }
+        for (int x = 0; x < MAP_W; x++) {
+            if (x < 15 || x > 16) {
+                wallBrick(x, MAP_H - 1);
+            }
+        }
+    }
+
     /** Lazy-load 32x32 tile art from classpath, with project-root fallback. */
     private void ensureSprites() {
         if (spritesTried) return;
@@ -271,31 +310,10 @@ public final class VillageScene {
         building("HOUSE", Kind.HOUSE, 18, 22, 3, 3, "A quiet house. The door is locked.", false, false);
         building("HOUSE", Kind.HOUSE, 22, 22, 3, 3, "A quiet house. The door is locked.", false, false);
 
-        // ---- 7. Corner-corrected top wall: caps wrap, brick front inset ----
-        // WALL_TOP is the capping piece (top row + side columns +outer corners).
-        // BRICK front face ONLY on top row 1 inset x1..30; (0,1)/(31,1) are corners.
-        // Left/right of bricks stays GRASS background (no side brick), sides continue
-        // caps from y2 so cap-meets-cap with no T-joint mismatch.
-        for (int x = 0; x < MAP_W; x++) {
-            wallTop(x, 0);
-        }
-        wallTop(0, 1);
-        wallTop(MAP_W - 1, 1);
-        for (int x = 1; x < MAP_W - 1; x++) {
-            wallBrick(x, 1);
-        }
-        // Side caps: visible Wall Top, solid, no brick face (classic visibility rule).
-        // Inner cols 1 / 30 stay walkable grass/path (east connector x30 preserved).
-        for (int y = 2; y < MAP_H - 2; y++) {
-            wallTop(0, y);
-            wallTop(MAP_W - 1, y);
-        }
-        // South outer edge row 31 (gate cols 15-16 stay walkable). Row 30 stays walkable.
-        for (int x = 0; x < MAP_W; x++) {
-            if (x < 15 || x > 16) {
-                invisibleBound(x, MAP_H - 1);
-            }
-        }
+        // ---- 7. Perimeter walls (structured): top + sides + front ----
+        buildTopWall();
+        buildSideCaps();
+        buildFrontWall();
         // Corner forests (inside corners, off paths).
         for (int x = 22; x <= 29; x++) tree(x, 2);
         for (int y = 3; y <= 7; y++) tree(29, y);
@@ -496,15 +514,20 @@ public final class VillageScene {
         }
     }
 
-    /** Horizontal top wall continuous + side caps present, brick front-only on row 1. */
+    /** Horizontal walls continuous + side caps present, brick faces front-only. */
     private void assertTopWallContinuous() {
-        if (wallBodies.size() != MAP_W - 2) {
-            throw new IllegalStateException("top brick row must span x1..30, have " + wallBodies.size());
+        // Top bricks row 1 inset x1..30; front bricks row 31 edge-to-edge minus gate.
+        int frontBricks = 0;
+        for (int[] w : wallBodies) if (w[1] == MAP_H - 1) frontBricks++;
+        if (wallBodies.size() != (MAP_W - 2) + frontBricks) {
+            throw new IllegalStateException("brick rows wrong size, have " + wallBodies.size());
         }
-        // Brick front-only: every brick must be top row 1 inset, never corners/sides.
+        // Brick faces: top row 1 inset OR front row 31 minus gate, never side columns.
         for (int[] w : wallBodies) {
-            if (w[1] != 1 || w[0] < 1 || w[0] > MAP_W - 2) {
-                throw new IllegalStateException("brick front-only violated at " + w[0] + "," + w[1]);
+            boolean topRow = w[1] == 1 && w[0] >= 1 && w[0] <= MAP_W - 2;
+            boolean frontRow = w[1] == MAP_H - 1 && (w[0] < 15 || w[0] > 16);
+            if (!topRow && !frontRow) {
+                throw new IllegalStateException("brick face violated at " + w[0] + "," + w[1]);
             }
         }
         for (int x = 0; x < MAP_W; x++) {
@@ -514,7 +537,7 @@ public final class VillageScene {
                 throw new IllegalStateException("top cap gap at x=" + x);
             }
         }
-        // Corner terminators must be caps, not brick.
+        // Top corner terminators must be caps, not brick.
         if (!containsCell(wallTops, 0, 1) || !containsCell(wallTops, MAP_W - 1, 1)) {
             throw new IllegalStateException("corner caps missing at (0,1)/(31,1)");
         }
@@ -523,6 +546,16 @@ public final class VillageScene {
             for (int[] w : wallBodies) if (w[0] == x && w[1] == 1) brick = true;
             if (!brick) {
                 throw new IllegalStateException("top brick gap at x=" + x);
+            }
+        }
+        // Front 3D wrap: row 30 caps minus gate, row 31 bricks (corners W) minus gate.
+        for (int x = 0; x < MAP_W; x++) {
+            if (x == 15 || x == 16) continue;
+            if (!containsCell(wallTops, x, MAP_H - 2)) {
+                throw new IllegalStateException("front cap gap at x=" + x);
+            }
+            if (!containsCell(wallBodies, x, MAP_H - 1)) {
+                throw new IllegalStateException("front brick gap at x=" + x);
             }
         }
         // Side caps: Wall Top may show on sides, brick may not.
