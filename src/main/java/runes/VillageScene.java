@@ -5,6 +5,9 @@ import java.awt.Font;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.event.KeyEvent;
+import java.awt.image.BufferedImage;
+import java.io.InputStream;
+import javax.imageio.ImageIO;
 
 /**
  * FINAL village walk test: Coneria-style 32x32 town.
@@ -86,7 +89,17 @@ public final class VillageScene {
     private final java.util.List<Npc> npcs = new java.util.ArrayList<>();
     private final java.util.List<int[]> trees = new java.util.ArrayList<>();
     private final java.util.List<int[]> fences = new java.util.ArrayList<>();
+    private final java.util.List<int[]> wallTops = new java.util.ArrayList<>();
+    private final java.util.List<int[]> wallBodies = new java.util.ArrayList<>();
+    private final java.util.List<int[]> invisibleBounds = new java.util.ArrayList<>();
     private int fountainX = 15, fountainY = 15; // 2x2 top-left
+
+    // ---- Tile sprites (32x32 source art, drawn 1:1 to a scaled cell) ----
+    private BufferedImage grassTile;
+    private BufferedImage wallBrickTile;
+    private BufferedImage wallTopTile;
+    private BufferedImage treeTile;
+    private boolean spritesTried;
 
     // ---- Player (grid based) ----
     private int col, row;
@@ -162,6 +175,46 @@ public final class VillageScene {
         ground[c][r] = Ground.TREE;
     }
 
+    /** Wall cap: solid, blocks movement. Serves as the top of the wall. */
+    private void wallTop(int c, int r) {
+        wallTops.add(new int[]{c, r});
+        solid[c][r] = true;
+        // Keep GRASS underneath so the grass tile still shows at seams.
+    }
+
+    /** Wall body: front face of the top wall, solid — blocks movement. */
+    private void wallBrick(int c, int r) {
+        wallBodies.add(new int[]{c, r});
+        solid[c][r] = true;
+    }
+
+    /** Invisible map edge: solid, no texture. Keeps player inside without visuals. */
+    private void invisibleBound(int c, int r) {
+        invisibleBounds.add(new int[]{c, r});
+        solid[c][r] = true;
+    }
+
+    /** Lazy-load 32x32 tile art from classpath, with project-root fallback. */
+    private void ensureSprites() {
+        if (spritesTried) return;
+        spritesTried = true;
+        grassTile = loadTile("/assets/tiles/grass.png");
+        wallBrickTile = loadTile("/assets/tiles/wall_brick.png");
+        wallTopTile = loadTile("/assets/tiles/wall_top.png");
+        treeTile = loadTile("/assets/tiles/tree.png");
+    }
+
+    private BufferedImage loadTile(String resourcePath) {
+        try {
+            InputStream in = AssetLoader.open(resourcePath);
+            try (in) {
+                return ImageIO.read(in);
+            }
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     private void building(String name, Kind kind, int tx, int ty, int tw, int th,
                           String blurb, boolean shop, boolean chimney) {
         Building b = new Building(name, kind, tx, ty, tw, th, blurb, shop, chimney);
@@ -218,18 +271,30 @@ public final class VillageScene {
         building("HOUSE", Kind.HOUSE, 18, 22, 3, 3, "A quiet house. The door is locked.", false, false);
         building("HOUSE", Kind.HOUSE, 22, 22, 3, 3, "A quiet house. The door is locked.", false, false);
 
-        // ---- 7. Trees: 2-deep border + corner forests + groups, fixed layout ----
+        // ---- 7. Corner-corrected top wall: caps wrap, brick front inset ----
+        // WALL_TOP is the capping piece (top row + side columns +outer corners).
+        // BRICK front face ONLY on top row 1 inset x1..30; (0,1)/(31,1) are corners.
+        // Left/right of bricks stays GRASS background (no side brick), sides continue
+        // caps from y2 so cap-meets-cap with no T-joint mismatch.
         for (int x = 0; x < MAP_W; x++) {
-            for (int r = 0; r < 2; r++) {
-                tree(x, r); // north band rows 0-1
-                if ((x < 15 || x > 16) && r < 2) {
-                    tree(x, MAP_H - 1 - r); // south band rows 30-31, gate stays open
-                }
-            }
+            wallTop(x, 0);
         }
+        wallTop(0, 1);
+        wallTop(MAP_W - 1, 1);
+        for (int x = 1; x < MAP_W - 1; x++) {
+            wallBrick(x, 1);
+        }
+        // Side caps: visible Wall Top, solid, no brick face (classic visibility rule).
+        // Inner cols 1 / 30 stay walkable grass/path (east connector x30 preserved).
         for (int y = 2; y < MAP_H - 2; y++) {
-            tree(0, y); tree(1, y); // west band
-            tree(MAP_W - 1, y); tree(MAP_W - 2, y); // east band
+            wallTop(0, y);
+            wallTop(MAP_W - 1, y);
+        }
+        // South outer edge row 31 (gate cols 15-16 stay walkable). Row 30 stays walkable.
+        for (int x = 0; x < MAP_W; x++) {
+            if (x < 15 || x > 16) {
+                invisibleBound(x, MAP_H - 1);
+            }
         }
         // Corner forests (inside corners, off paths).
         for (int x = 22; x <= 29; x++) tree(x, 2);
@@ -354,6 +419,15 @@ public final class VillageScene {
         for (int[] t : trees) {
             if (!isInsideMap(t[0], t[1])) throw new IllegalStateException("Tree outside map");
         }
+        for (int[] w : wallTops) {
+            if (!isInsideMap(w[0], w[1])) throw new IllegalStateException("Wall top outside map");
+        }
+        for (int[] w : wallBodies) {
+            if (!isInsideMap(w[0], w[1])) throw new IllegalStateException("Wall brick outside map");
+        }
+        for (int[] w : invisibleBounds) {
+            if (!isInsideMap(w[0], w[1])) throw new IllegalStateException("Bound outside map");
+        }
         for (Npc n : npcs) {
             if (!isInsideMap(n.cx, n.cy)) throw new IllegalStateException("NPC outside map");
         }
@@ -372,15 +446,107 @@ public final class VillageScene {
             }
         }
         for (int[] t : trees) assertNotOnPath(t[0], t[1], "tree");
+        // Top wall is solid FF1-style: never on a path/door. Invisible edges are also
+        // solid but have no texture; they must not cover doors/entrances either.
+        for (int[] w : wallTops) assertNotOnPath(w[0], w[1], "wallTop");
+        for (int[] w : wallBodies) assertNotOnPath(w[0], w[1], "wallBrick");
+        for (int[] w : invisibleBounds) assertNotOnDoor(w[0], w[1], "bound");
+        assertWallCollision();
+        assertTopWallContinuous();
         for (Npc n : npcs) {
             for (int[] t : trees) {
                 if (n.cx == t[0] && n.cy == t[1]) {
                     throw new IllegalStateException("npc " + n.name + " on tree at " + n.cx + "," + n.cy);
                 }
             }
+            for (int[] w : wallTops) {
+                if (n.cx == w[0] && n.cy == w[1]) {
+                    throw new IllegalStateException("npc " + n.name + " on wallTop at " + n.cx + "," + n.cy);
+                }
+            }
+            for (int[] w : wallBodies) {
+                if (n.cx == w[0] && n.cy == w[1]) {
+                    throw new IllegalStateException("npc " + n.name + " on wallBrick at " + n.cx + "," + n.cy);
+                }
+            }
         }
         for (int[] f : fences) assertNotOnPath(f[0], f[1], "fence");
         for (Npc n : npcs) assertNotOnPath(n.cx, n.cy, "npc " + n.name);
+    }
+
+    /** Top wall rows 0-1 solid + continuous, side caps + south edge solid, gate open. */
+    private void assertWallCollision() {
+        for (int[] w : wallTops) {
+            if (!solid[w[0]][w[1]]) {
+                throw new IllegalStateException("wallTop must be solid at " + w[0] + "," + w[1]);
+            }
+        }
+        for (int[] w : wallBodies) {
+            if (!solid[w[0]][w[1]]) {
+                throw new IllegalStateException("wallBrick must be solid at " + w[0] + "," + w[1]);
+            }
+        }
+        for (int[] w : invisibleBounds) {
+            if (!solid[w[0]][w[1]]) {
+                throw new IllegalStateException("bound must be solid at " + w[0] + "," + w[1]);
+            }
+        }
+        if (solid[15][30] || solid[16][30] || solid[15][31] || solid[16][31]) {
+            throw new IllegalStateException("gate must stay walkable");
+        }
+    }
+
+    /** Horizontal top wall continuous + side caps present, brick front-only on row 1. */
+    private void assertTopWallContinuous() {
+        if (wallBodies.size() != MAP_W - 2) {
+            throw new IllegalStateException("top brick row must span x1..30, have " + wallBodies.size());
+        }
+        // Brick front-only: every brick must be top row 1 inset, never corners/sides.
+        for (int[] w : wallBodies) {
+            if (w[1] != 1 || w[0] < 1 || w[0] > MAP_W - 2) {
+                throw new IllegalStateException("brick front-only violated at " + w[0] + "," + w[1]);
+            }
+        }
+        for (int x = 0; x < MAP_W; x++) {
+            boolean top = false;
+            for (int[] w : wallTops) if (w[0] == x && w[1] == 0) top = true;
+            if (!top) {
+                throw new IllegalStateException("top cap gap at x=" + x);
+            }
+        }
+        // Corner terminators must be caps, not brick.
+        if (!containsCell(wallTops, 0, 1) || !containsCell(wallTops, MAP_W - 1, 1)) {
+            throw new IllegalStateException("corner caps missing at (0,1)/(31,1)");
+        }
+        for (int x = 1; x < MAP_W - 1; x++) {
+            boolean brick = false;
+            for (int[] w : wallBodies) if (w[0] == x && w[1] == 1) brick = true;
+            if (!brick) {
+                throw new IllegalStateException("top brick gap at x=" + x);
+            }
+        }
+        // Side caps: Wall Top may show on sides, brick may not.
+        int sideCapExpect = (MAP_H - 2 - 2);
+        int sideCaps = 0;
+        for (int[] w : wallTops) {
+            if ((w[0] == 0 || w[0] == MAP_W - 1) && w[1] >= 2 && w[1] < MAP_H - 2) sideCaps++;
+        }
+        if (sideCaps != sideCapExpect * 2) {
+            throw new IllegalStateException("side caps must be " + (sideCapExpect * 2) + ", have " + sideCaps);
+        }
+    }
+
+    private static boolean containsCell(java.util.List<int[]> list, int x, int y) {
+        for (int[] a : list) if (a[0] == x && a[1] == y) return true;
+        return false;
+    }
+
+    private void assertNotOnDoor(int x, int y, String what) {
+        for (Building b : buildings) {
+            if ((x == b.doorX && y == b.doorY) || (x == b.enterX && y == b.enterY)) {
+                throw new IllegalStateException(what + " on door/entrance at " + x + "," + y);
+            }
+        }
     }
 
     private void assertNotOnPath(int x, int y, String what) {
@@ -549,18 +715,31 @@ public final class VillageScene {
             // Fountain water + rim.
             paintFountain(g2, offX, offY);
 
-            // Y-sorted: buildings, trees, fences, NPCs, player.
+            // Y-sorted Layer 2: building bases, wall caps/faces, tree trunks, fences, NPCs, player.
+            // Roofs/canopies/wall faces re-appear in the Layer 3 pass below (overhead).
             java.util.TreeMap<Integer, java.util.List<Runnable>> order = new java.util.TreeMap<>();
             for (Building b : buildings) {
                 int baseY = (b.ty + b.th) * TILE;
                 order.computeIfAbsent(baseY * 4 + 1, k -> new java.util.ArrayList<>())
                         .add(() -> drawBuilding(g2, offX, offY, b));
             }
+            for (int[] w : wallBodies) {
+                if (w[0] < c0 - 1 || w[0] > c1 + 1 || w[1] < r0 - 1 || w[1] > r1 + 1) continue;
+                int baseY = (w[1] + 1) * TILE;
+                order.computeIfAbsent(baseY * 4 + 2, k -> new java.util.ArrayList<>())
+                        .add(() -> drawWallBrick(g2, offX, offY, w[0], w[1]));
+            }
+            for (int[] w : wallTops) {
+                if (w[0] < c0 - 1 || w[0] > c1 + 1 || w[1] < r0 - 1 || w[1] > r1 + 1) continue;
+                int baseY = (w[1] + 1) * TILE;
+                order.computeIfAbsent(baseY * 4 + 2, k -> new java.util.ArrayList<>())
+                        .add(() -> drawWallTop(g2, offX, offY, w[0], w[1]));
+            }
             for (int[] t : trees) {
                 if (t[0] < c0 - 1 || t[0] > c1 + 1 || t[1] < r0 - 1 || t[1] > r1 + 1) continue;
                 int baseY = (t[1] + 1) * TILE;
                 order.computeIfAbsent(baseY * 4 + 2, k -> new java.util.ArrayList<>())
-                        .add(() -> drawTree(g2, offX, offY, t[0], t[1]));
+                        .add(() -> drawTreeTrunk(g2, offX, offY, t[0], t[1]));
             }
             for (int[] f : fences) {
                 int baseY = (f[1] + 1) * TILE;
@@ -579,6 +758,12 @@ public final class VillageScene {
                 for (Runnable d : batch) d.run();
             }
 
+            // Layer 3 overhead (Dawn of Souls): wall face strip, tree canopies, roofs.
+            // Position-independent: redraws only overhead bands after the player.
+            drawWallForeground(g2, offX, offY, c0, r0, c1, r1);
+            drawTreeCanopyPass(g2, offX, offY, c0, r0, c1, r1);
+            drawRoofForeground(g2, offX, offY, c0, r0, c1, r1);
+
             if (debug) drawDebug(g2, offX, offY, viewW, viewH, c0, r0, c1, r1);
             drawHud(g2, viewW, viewH);
         } finally {
@@ -588,28 +773,41 @@ public final class VillageScene {
     }
 
     private void paintGround(Graphics2D g2, int offX, int offY, int c, int r) {
+        ensureSprites();
         int s = TILE * SCALE;
         int x = offX + (c * TILE - camX) * SCALE;
         int y = offY + (r * TILE - camY) * SCALE;
         switch (ground[c][r]) {
             case GRASS -> {
-                // Fixed two-tone checker + fixed dark patches (same every run).
-                if ((c + r) % 2 == 0) g2.setColor(VillagePalette.GRASS_TONE2);
-                else g2.setColor(VillagePalette.GRASS);
-                g2.fillRect(x, y, s, s);
-                if ((c * 7 + r * 13) % 29 == 0) {
-                    g2.setColor(VillagePalette.GRASS_DARK);
-                    g2.fillRect(x + s / 4, y + s / 4, s / 2, s / 2);
+                if (grassTile != null) {
+                    g2.drawImage(grassTile, x, y, s, s, null);
+                } else {
+                    // Fallback two-tone checker + fixed dark patches (same every run).
+                    if ((c + r) % 2 == 0) g2.setColor(VillagePalette.GRASS_TONE2);
+                    else g2.setColor(VillagePalette.GRASS);
+                    g2.fillRect(x, y, s, s);
+                    if ((c * 7 + r * 13) % 29 == 0) {
+                        g2.setColor(VillagePalette.GRASS_DARK);
+                        g2.fillRect(x + s / 4, y + s / 4, s / 2, s / 2);
+                    }
                 }
             }
-            case PATH -> g2.setColor(VillagePalette.PATH);
-            case ROAD -> g2.setColor(VillagePalette.PATH);
-            case SQUARE -> g2.setColor(VillagePalette.PLAZA);
-            case TREE -> g2.setColor(VillagePalette.GRASS);
-            case GATE -> g2.setColor(VillagePalette.PATH);
-        }
-        if (ground[c][r] != Ground.GRASS && ground[c][r] != Ground.TREE) {
-            g2.fillRect(x, y, s, s);
+            case TREE -> {
+                if (grassTile != null) {
+                    g2.drawImage(grassTile, x, y, s, s, null);
+                } else {
+                    g2.setColor(VillagePalette.GRASS);
+                    g2.fillRect(x, y, s, s);
+                }
+            }
+            case PATH, ROAD, GATE -> {
+                g2.setColor(VillagePalette.PATH);
+                g2.fillRect(x, y, s, s);
+            }
+            case SQUARE -> {
+                g2.setColor(VillagePalette.PLAZA);
+                g2.fillRect(x, y, s, s);
+            }
         }
     }
 
@@ -729,15 +927,51 @@ public final class VillageScene {
     }
 
     private void drawTree(Graphics2D g2, int offX, int offY, int c, int r) {
+        // Legacy full-tile draw (kept for fallback path); layered code uses trunk/canopy below.
+        drawTreeTrunk(g2, offX, offY, c, r);
+    }
+
+    /** Layer 2 trunk: solid base. Bottom half of the 32x32 tree art. */
+    private void drawTreeTrunk(Graphics2D g2, int offX, int offY, int c, int r) {
+        ensureSprites();
         int s = TILE * SCALE;
         int x = offX + (c * TILE - camX) * SCALE;
         int y = offY + (r * TILE - camY) * SCALE;
+        if (treeTile != null) {
+            // Clip to bottom half so only the trunk/base shows in the Layer 2 pass.
+            java.awt.Shape old = g2.getClip();
+            try {
+                g2.setClip(x, y + s / 2, s, s - s / 2);
+                g2.drawImage(treeTile, x, y, s, s, null);
+            } finally {
+                g2.setClip(old);
+            }
+            return;
+        }
         g2.setColor(VillagePalette.TRUNK);
         g2.fillRect(x + s / 2 - 2, y + s / 2, 4, s / 2);
         g2.setColor(VillagePalette.CANOPY_DARK);
         g2.fillOval(x - 2, y - s / 2, s + 4, s);
         g2.setColor(VillagePalette.CANOPY_LIGHT);
         g2.fillOval(x + 1, y - s / 2 + 2, s - 4, s - 5);
+    }
+
+    /** Layer 3 canopy: PASSABLE visual overlay, drawn after the player. Top half of art. */
+    private void drawTreeCanopy(Graphics2D g2, int offX, int offY, int c, int r) {
+        ensureSprites();
+        int s = TILE * SCALE;
+        int x = offX + (c * TILE - camX) * SCALE;
+        int y = offY + (r * TILE - camY) * SCALE;
+        if (treeTile != null) {
+            java.awt.Shape old = g2.getClip();
+            try {
+                g2.setClip(x, y, s, s / 2);
+                g2.drawImage(treeTile, x, y, s, s, null);
+            } finally {
+                g2.setClip(old);
+            }
+        }
+        // Fallback procedural canopy is already part of the trunk draw; nothing extra needed.
     }
 
     private void drawFence(Graphics2D g2, int offX, int offY, int c, int r) {
@@ -748,6 +982,103 @@ public final class VillageScene {
         g2.fillRect(x + 2, y + s / 2 - 1, s - 4, 3);
         g2.fillRect(x + 3, y + 4, 3, s - 8);
         g2.fillRect(x + s - 6, y + 4, 3, s - 8);
+    }
+
+    /** Top-wall face: front of the FF1 horizontal wall, solid — blocks movement. */
+    private void drawWallBrick(Graphics2D g2, int offX, int offY, int c, int r) {
+        ensureSprites();
+        int s = TILE * SCALE;
+        int x = offX + (c * TILE - camX) * SCALE;
+        int y = offY + (r * TILE - camY) * SCALE;
+        if (wallBrickTile != null) {
+            g2.drawImage(wallBrickTile, x, y, s, s, null);
+        } else {
+            g2.setColor(VillagePalette.WALL_SHADE);
+            g2.fillRect(x, y, s, s);
+            g2.setColor(VillagePalette.OUTLINE_DARK);
+            g2.drawRect(x, y, s - 1, s - 1);
+        }
+    }
+
+    /** Wall cap: drawn from art, solid — blocks movement. */
+    private void drawWallTop(Graphics2D g2, int offX, int offY, int c, int r) {
+        ensureSprites();
+        int s = TILE * SCALE;
+        int x = offX + (c * TILE - camX) * SCALE;
+        int y = offY + (r * TILE - camY) * SCALE;
+        if (wallTopTile != null) {
+            g2.drawImage(wallTopTile, x, y, s, s, null);
+        } else {
+            g2.setColor(VillagePalette.RIM);
+            g2.fillRect(x, y, s, s);
+            g2.setColor(VillagePalette.OUTLINE_DARK);
+            g2.drawRect(x, y, s - 1, s - 1);
+        }
+    }
+
+    /**
+     * FF1 foreground occlusion: after the player is drawn, cover the player's head
+     * with the wall's lower face when standing directly south of the top wall.
+     * Base tiles were already drawn before the player; this strip creates the
+     * behind-the-wall effect without changing collision, camera, or Y-sort.
+     * Front-only: only top row-1 bricks participate, never side caps.
+     */
+    private void drawWallForeground(Graphics2D g2, int offX, int offY,
+                                    int c0, int r0, int c1, int r1) {
+        ensureSprites();
+        int s = TILE * SCALE;
+        int strip = Math.max(8, s / 3); // ~10px at s=32: overlaps head, not whole body
+        java.awt.Shape oldClip = g2.getClip();
+        try {
+            for (int[] w : wallBodies) {
+                int c = w[0], r = w[1];
+                if (c < c0 - 1 || c > c1 + 1 || r < r0 - 1 || r > r1 + 1) continue;
+                int x = offX + (c * TILE - camX) * SCALE;
+                int y = offY + (r * TILE - camY) * SCALE;
+                // Only the lower face overlaps a south-adjacent player; clip to it.
+                g2.setClip(x, y + s - strip, s, strip);
+                if (wallBrickTile != null) {
+                    g2.drawImage(wallBrickTile, x, y, s, s, null);
+                } else {
+                    g2.setColor(VillagePalette.WALL_SHADE);
+                    g2.fillRect(x, y + s - strip, s, strip);
+                }
+            }
+        } finally {
+            g2.setClip(oldClip);
+        }
+    }
+
+    /** Layer 3 tree canopy pass: draws only canopy tops after the player. */
+    private void drawTreeCanopyPass(Graphics2D g2, int offX, int offY,
+                                    int c0, int r0, int c1, int r1) {
+        for (int[] t : trees) {
+            if (t[0] < c0 - 1 || t[0] > c1 + 1 || t[1] < r0 - 1 || t[1] > r1 + 1) continue;
+            drawTreeCanopy(g2, offX, offY, t[0], t[1]);
+        }
+    }
+
+    /**
+     * Layer 3 roofs: Y-sort already draws a building after a player standing north
+     * (Sprite_Y &lt; Roof_Y), but re-stamp the roof band here so the overhead edge
+     * always covers a head walking behind it, per Dawn of Souls Layer 3.
+     */
+    private void drawRoofForeground(Graphics2D g2, int offX, int offY,
+                                    int c0, int r0, int c1, int r1) {
+        int s = TILE * SCALE;
+        java.awt.Shape oldClip = g2.getClip();
+        try {
+            for (Building b : buildings) {
+                if (b.tx + b.tw < c0 - 1 || b.tx > c1 + 1 || b.ty > r1 + 1 || b.ty + b.th < r0 - 1) continue;
+                int roofRows = (b.kind == Kind.INN) ? 2 : 1;
+                int x = offX + (b.tx * TILE - camX) * SCALE;
+                int y = offY + (b.ty * TILE - camY) * SCALE;
+                g2.setClip(x, y, b.tw * s, roofRows * s);
+                drawBuilding(g2, offX, offY, b);
+            }
+        } finally {
+            g2.setClip(oldClip);
+        }
     }
 
     private void drawNpc(Graphics2D g2, int offX, int offY, Npc n) {
@@ -899,15 +1230,25 @@ public final class VillageScene {
         for (int y = fountainY; y < fountainY + 2; y++) {
             for (int x = fountainX; x < fountainX + 2; x++) pic[y][x] = 'F';
         }
+        for (int[] w : wallBodies) pic[w[1]][w[0]] = 'w';
+        for (int[] w : wallTops) pic[w[1]][w[0]] = 'W';
+        for (int[] w : invisibleBounds) {
+            if (pic[w[1]][w[0]] == '.' || pic[w[1]][w[0]] == 'p'
+                    || pic[w[1]][w[0]] == 'r' || pic[w[1]][w[0]] == 's') {
+                pic[w[1]][w[0]] = 'x';
+            }
+        }
         for (Npc n : npcs) pic[n.cy][n.cx] = 'N';
         pic[SPAWN_R][SPAWN_C] = 'P';
         System.out.println("MAP 32x32 (col 0..31):");
         for (int y = 0; y < MAP_H; y++) {
             System.out.println(String.valueOf(pic[y]));
         }
-        System.out.println("Legend: .=grass r=road p=path s=plaza G=gate T=tree F=fountain");
+        System.out.println("Legend: .=grass r=road p=path s=plaza G=gate T=tree F=fountain W=wallTop w=wallBrick x=invisibleBound");
         System.out.println("I=inn H=house i=item W=weapon A=armor M=magic B=bighouse D=door d=entrance N=npc P=spawn");
         int treeCount = trees.size();
-        System.out.println("Trees: " + treeCount + " Buildings: " + buildings.size() + " NPCs: " + npcs.size());
+        System.out.println("Trees: " + treeCount + " WallTops: " + wallTops.size()
+                + " WallBricks: " + wallBodies.size() + " Bounds: " + invisibleBounds.size()
+                + " Buildings: " + buildings.size() + " NPCs: " + npcs.size());
     }
 }
