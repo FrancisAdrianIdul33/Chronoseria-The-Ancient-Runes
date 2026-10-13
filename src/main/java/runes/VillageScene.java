@@ -92,7 +92,7 @@ public final class VillageScene {
     private final java.util.List<int[]> wallTops = new java.util.ArrayList<>();
     private final java.util.List<int[]> wallBodies = new java.util.ArrayList<>();
     private final java.util.List<int[]> invisibleBounds = new java.util.ArrayList<>();
-    private int fountainX = 15, fountainY = 15; // 2x2 top-left
+    private int fountainX = 19, fountainY = 17; // 2x2 top-left, east court off the spine
 
     // ---- Tile sprites (32x32 source art, drawn 1:1 to a scaled cell) ----
     private BufferedImage grassTile;
@@ -100,6 +100,9 @@ public final class VillageScene {
     private BufferedImage wallTopTile;
     private BufferedImage treeTile;
     private boolean spritesTried;
+
+    // ---- Dynamic wall mask: designer intent, stamped to T/W by neighbor rule ----
+    private final boolean[][] wallMask = new boolean[MAP_W][MAP_H];
 
     // ---- Player (grid based) ----
     private int col, row;
@@ -194,41 +197,84 @@ public final class VillageScene {
         solid[c][r] = true;
     }
 
-    // ---- 7a. Perimeter structure: top cap ring + inset top bricks ----
+    // ---- 7a. Top of the T: full-width cap ring + inset top bricks ----
+    // Designers add footprint cells to wallMask; stampWallsDynamic() resolves T/W.
+    private void wall(int c, int r) {
+        if (isInsideMap(c, r)) wallMask[c][r] = true;
+    }
+
     private void buildTopWall() {
-        // WALL_TOP caps the full top row; BRICK face ONLY row 1 x1..30.
-        // (0,1)/(31,1) are cap corners so cap meets cap with no T-joint.
+        // Full top cap line + face row inset; corners left as mask for caps.
         for (int x = 0; x < MAP_W; x++) {
-            wallTop(x, 0);
-        }
-        wallTop(0, 1);
-        wallTop(MAP_W - 1, 1);
-        for (int x = 1; x < MAP_W - 1; x++) {
-            wallBrick(x, 1);
+            wall(x, 0);
+            wall(x, 1);
         }
     }
 
-    // ---- 7b. Side caps: visible Wall Top columns, never brick ----
+    // ---- 7b. Bar sides: cap columns down to the bar-bottom band ----
     private void buildSideCaps() {
-        // Inner cols 1 / 30 stay walkable grass/path (east connector x30 preserved).
-        for (int y = 2; y < MAP_H - 2; y++) {
-            wallTop(0, y);
-            wallTop(MAP_W - 1, y);
+        // Inner cols 1 / 30 stay walkable; bar interior spans full width to row 11.
+        for (int y = 2; y <= 12; y++) {
+            wall(0, y);
+            wall(MAP_W - 1, y);
         }
     }
 
-    // ---- 7c. Front wall: top-to-bottom T then W, corners wrap in brick ----
+    // ---- 7c. Bar-bottom band: T junction floor of the top bar ----
+    // Row 12 caps (opening x11..20), row 13 faces/caps: outer faces wrap like the
+    // front for 3D thickness, x10/x21 resolve as caps against the stem walls.
+    // (10,12)/(21,12) are inner corner caps closing the junction mouth.
+    private void buildBarBottom() {
+        for (int x = 0; x <= 9; x++) {
+            wall(x, 12);
+            wall(x, 13);
+        }
+        for (int x = 22; x < MAP_W; x++) {
+            wall(x, 12);
+            wall(x, 13);
+        }
+        wall(10, 12);
+        wall(21, 12);
+        wall(10, 13);
+        wall(21, 13);
+    }
+
+    // ---- 7d. Stem walls: corridor sides down to the front ----
+    private void buildStemWalls() {
+        for (int y = 14; y <= 29; y++) {
+            wall(10, y);
+            wall(21, y);
+        }
+    }
+
+    // ---- 7e. Front wall: top-to-bottom T then W across the stem, gate open ----
     private void buildFrontWall() {
-        // First layer row 30 = caps (gate open), last layer row 31 = bricks
-        // edge-to-edge minus gate, including (0,31)/(31,31) for 3D thickness.
-        for (int x = 0; x < MAP_W; x++) {
-            if (x < 15 || x > 16) {
-                wallTop(x, MAP_H - 2);
+        // First layer row 30 = caps (1-wide gate at x15), last layer row 31 = bricks.
+        for (int x = 10; x <= 21; x++) {
+            if (x != 15) {
+                wall(x, MAP_H - 2);
             }
         }
-        for (int x = 0; x < MAP_W; x++) {
-            if (x < 15 || x > 16) {
-                wallBrick(x, MAP_H - 1);
+        for (int x = 10; x <= 21; x++) {
+            if (x != 15) {
+                wall(x, MAP_H - 1);
+            }
+        }
+    }
+
+    /**
+     * Dynamic T-wall stamp: every mask cell becomes a cap (T) when the cell south
+     * of it is also wall, otherwise a south-facing face (W). This yields T-over-W
+     * stacking, cap-to-cap corners and T-junctions, and face-wrapped outer corners
+     * with no per-cell hand placement.
+     */
+    private void stampWallsDynamic() {
+        for (int y = 0; y < MAP_H; y++) {
+            for (int x = 0; x < MAP_W; x++) {
+                if (!wallMask[x][y]) continue;
+                boolean southIsWall = isInsideMap(x, y + 1) && wallMask[x][y + 1];
+                if (southIsWall) wallTop(x, y);
+                else wallBrick(x, y);
             }
         }
     }
@@ -276,19 +322,12 @@ public final class VillageScene {
             }
         }
 
-        // ---- 4. Paths: straight runs, clean 90-degree corners ----
-        fillGround(15, 8, 2, 23, Ground.ROAD);   // main road cols 15-16 rows 8-30
-        fillGround(3, 8, 26, 2, Ground.ROAD);    // north lane rows 8-9
-        fillGround(3, 26, 26, 2, Ground.ROAD);   // south lane rows 26-27
-        fillGround(11, 13, 10, 6, Ground.SQUARE); // plaza cols 11-20 rows 13-18
-        fillGround(18, 12, 1, 3, Ground.PATH);   // market spur x18 rows 12-14
-        fillGround(4, 17, 7, 1, Ground.PATH);    // west spur row 17 cols 4-10
-        fillGround(21, 17, 5, 1, Ground.PATH);   // east spur row 17 cols 21-25
-        fillGround(30, 20, 1, 7, Ground.PATH);   // east connector x30 rows 20-26
-        ground[15][30] = Ground.GATE; // gate floor, rows 30-31 stay walkable
-        ground[16][30] = Ground.GATE;
+        // ---- 4. Paths: 1-line spine continuous, lane, plaza court, gate ----
+        fillGround(15, 8, 1, 23, Ground.ROAD);   // spine rows 8-30 col 15, unbroken
+        fillGround(3, 8, 26, 1, Ground.ROAD);    // north lane row 8 cols 3-28
+        fillGround(3, 9, 5, 3, Ground.SQUARE);   // west plaza court cols 3-7 rows 9-11
+        ground[15][30] = Ground.GATE; // gate floor, 1-wide at x15, rows 30-31 walkable
         ground[15][31] = Ground.GATE;
-        ground[16][31] = Ground.GATE;
 
         // Fountain 2x2, solid, walked around inside the plaza.
         for (int y = 0; y < 2; y++) {
@@ -297,45 +336,55 @@ public final class VillageScene {
             }
         }
 
-        // ---- 5. Buildings: 11 doors, bottom-center, facing south ----
+        // ---- 5. Buildings: 11 doors, bottom-center, facing south, all inside the T ----
+        // Bar-north band rows 3-6, lane row 8, junction band rows 10-12 (road col 15 clear),
+        // stem columns x11-13 / x17-19 flanking the spine.
         building("INN", Kind.INN, 3, 3, 5, 4, "Inn — rest up for the road ahead.", true, true);
         building("HOUSE", Kind.HOUSE, 10, 4, 3, 3, "A quiet house. The door is locked.", false, true);
         building("WEAPON", Kind.WEAPON, 17, 4, 5, 3, "Weapon shop — blades over the door.", true, false);
         building("ARMOR", Kind.ARMOR, 24, 4, 5, 3, "Armor shop — plate and mail.", true, false);
-        building("ITEM", Kind.ITEM, 3, 13, 3, 3, "Item shop — odds and ends.", true, false);
-        building("HOUSE", Kind.HOUSE, 7, 13, 3, 3, "A quiet house. The door is locked.", false, false);
-        building("HOUSE", Kind.BIG, 23, 13, 5, 3, "A big house. Someone important lives here.", false, true);
-        building("MAGIC", Kind.MAGIC, 7, 22, 3, 3, "Magic shop — it hums.", true, false);
-        building("HOUSE", Kind.HOUSE, 11, 22, 3, 3, "A quiet house. The door is locked.", false, false);
-        building("HOUSE", Kind.HOUSE, 18, 22, 3, 3, "A quiet house. The door is locked.", false, false);
-        building("HOUSE", Kind.HOUSE, 22, 22, 3, 3, "A quiet house. The door is locked.", false, false);
+        building("HOUSE", Kind.HOUSE, 11, 10, 3, 3, "A quiet house. The door is locked.", false, false);
+        building("ITEM", Kind.ITEM, 17, 10, 3, 3, "Item shop — odds and ends.", true, false);
+        building("MAGIC", Kind.MAGIC, 11, 14, 3, 3, "Magic shop — it hums.", true, false);
+        building("HOUSE", Kind.HOUSE, 11, 19, 3, 3, "A quiet house. The door is locked.", false, false);
+        building("HOUSE", Kind.HOUSE, 11, 24, 3, 3, "A quiet house. The door is locked.", false, false);
+        building("HOUSE", Kind.HOUSE, 17, 14, 3, 3, "A quiet house. The door is locked.", false, false);
+        building("HOUSE", Kind.HOUSE, 17, 19, 3, 3, "A quiet house. The door is locked.", false, false);
 
-        // ---- 7. Perimeter walls (structured): top + sides + front ----
+        // ---- 7. T-shaped perimeter walls (structured + dynamic stamp) ----
+        // Top bar full width, stem corridor x10..21 down to a stem-width front.
+        // Grass covers the whole map first, so there is grass inside + outside.
         buildTopWall();
         buildSideCaps();
+        buildBarBottom();
+        buildStemWalls();
         buildFrontWall();
-        // Corner forests (inside corners, off paths).
-        for (int x = 22; x <= 29; x++) tree(x, 2);
-        for (int y = 3; y <= 7; y++) tree(29, y);
-        for (int x = 2; x <= 12; x++) tree(x, 2);
-        for (int y = 3; y <= 7; y++) tree(2, y);
-        for (int x = 2; x <= 6; x++) { tree(x, 24); tree(x, 25); tree(x, 28); tree(x, 29); }
-        for (int x = 24; x <= 29; x++) { tree(x, 28); tree(x, 29); }
-        // Small groups in open grass.
-        tree(12, 10); tree(13, 10); tree(12, 11);
-        tree(24, 19); tree(25, 19); tree(25, 20);
-        tree(5, 20); tree(6, 20); tree(6, 21);
+        stampWallsDynamic();
+        // Corner forests inside the bar + edge clusters (off paths/doors).
+        for (int x = 5; x <= 6; x++) tree(x, 2);
+        for (int x = 19; x <= 20; x++) tree(x, 2);
+        for (int y = 3; y <= 7; y++) { tree(2, y); tree(29, y); }
+        tree(2, 8); tree(2, 9); tree(2, 10); tree(2, 11);
+        tree(29, 8); tree(29, 9); tree(29, 10); tree(29, 11);
+        tree(27, 9); tree(28, 9);
+        // Stem edge trees flanking the spine, clear of road/doors.
+        tree(11, 18); tree(11, 23);
+        tree(20, 16); tree(20, 23);
+        tree(13, 27); tree(18, 27);
+        // Outside backdrop groves (unreachable decor, grass elsewhere outside).
+        tree(3, 16); tree(4, 16); tree(3, 20); tree(5, 24);
+        tree(27, 16); tree(28, 20); tree(26, 24); tree(4, 27); tree(28, 27);
 
-        // Fences (solid props).
-        fences.add(new int[]{10, 20}); fences.add(new int[]{11, 20});
-        fences.add(new int[]{29, 22}); fences.add(new int[]{29, 23});
+        // Fences (solid props, inside the stem clear of road/doors).
+        fences.add(new int[]{14, 23}); fences.add(new int[]{14, 24});
+        fences.add(new int[]{16, 23}); fences.add(new int[]{16, 24});
         for (int[] f : fences) solid[f[0]][f[1]] = true;
 
         // NPCs near paths, never on entrances (solid cells).
         npcs.add(new Npc("MIRA", 14, 19, "Mira: \"The blue roof is the Inn.\"", VillagePalette.WATER));
-        npcs.add(new Npc("Bram", 21, 12, "Bram: \"Fountain's cold. Shops are warm.\"", VillagePalette.ROOF_WEAPON));
-        npcs.add(new Npc("ODD", 17, 12, "Odd: \"Stay on the road.\"", VillagePalette.ROOF_MAGIC));
-        npcs.add(new Npc("Pip", 22, 28, "Pip: \"South lane goes everywhere.\"", VillagePalette.ROOF_ITEM));
+        npcs.add(new Npc("Bram", 16, 12, "Bram: \"Fountain's east. Shops are warm.\"", VillagePalette.ROOF_WEAPON));
+        npcs.add(new Npc("ODD", 16, 13, "Odd: \"Stay on the road.\"", VillagePalette.ROOF_MAGIC));
+        npcs.add(new Npc("Pip", 14, 28, "Pip: \"South road goes everywhere.\"", VillagePalette.ROOF_ITEM));
         npcs.add(new Npc("Sol", 9, 7, "Sol: \"Knock twice at the Inn.\"", VillagePalette.ROOF_HOUSE));
         for (Npc n : npcs) solid[n.cx][n.cy] = true;
 
@@ -490,6 +539,32 @@ public final class VillageScene {
         }
         for (int[] f : fences) assertNotOnPath(f[0], f[1], "fence");
         for (Npc n : npcs) assertNotOnPath(n.cx, n.cy, "npc " + n.name);
+        assertContainedInT();
+    }
+
+    /** Every structure must sit inside the T (on walkable ground, never on a wall). */
+    private void assertContainedInT() {
+        for (Building b : buildings) {
+            for (int y = b.ty; y < b.ty + b.th; y++) {
+                for (int x = b.tx; x < b.tx + b.tw; x++) {
+                    if (containsCell(wallTops, x, y) || containsCell(wallBodies, x, y)) {
+                        throw new IllegalStateException("building " + b.name + " on wall at " + x + "," + y);
+                    }
+                }
+            }
+            if (solid[b.enterX][b.enterY]) {
+                throw new IllegalStateException("entrance blocked: " + b.name);
+            }
+        }
+        for (int[] t : trees) assertNotOnWall(t[0], t[1], "tree");
+        for (int[] f : fences) assertNotOnWall(f[0], f[1], "fence");
+        for (Npc n : npcs) assertNotOnWall(n.cx, n.cy, "npc " + n.name);
+    }
+
+    private void assertNotOnWall(int x, int y, String what) {
+        if (containsCell(wallTops, x, y) || containsCell(wallBodies, x, y)) {
+            throw new IllegalStateException(what + " on wall at " + x + "," + y);
+        }
     }
 
     /** Top wall rows 0-1 solid + continuous, side caps + south edge solid, gate open. */
@@ -509,63 +584,84 @@ public final class VillageScene {
                 throw new IllegalStateException("bound must be solid at " + w[0] + "," + w[1]);
             }
         }
-        if (solid[15][30] || solid[16][30] || solid[15][31] || solid[16][31]) {
+        if (solid[15][30] || solid[15][31]) {
             throw new IllegalStateException("gate must stay walkable");
         }
     }
 
-    /** Horizontal walls continuous + side caps present, brick faces front-only. */
+    /** T-wall continuity: caps/faces per band, brick faces front-only, gate open. */
     private void assertTopWallContinuous() {
-        // Top bricks row 1 inset x1..30; front bricks row 31 edge-to-edge minus gate.
-        int frontBricks = 0;
-        for (int[] w : wallBodies) if (w[1] == MAP_H - 1) frontBricks++;
-        if (wallBodies.size() != (MAP_W - 2) + frontBricks) {
-            throw new IllegalStateException("brick rows wrong size, have " + wallBodies.size());
-        }
-        // Brick faces: top row 1 inset OR front row 31 minus gate, never side columns.
-        for (int[] w : wallBodies) {
-            boolean topRow = w[1] == 1 && w[0] >= 1 && w[0] <= MAP_W - 2;
-            boolean frontRow = w[1] == MAP_H - 1 && (w[0] < 15 || w[0] > 16);
-            if (!topRow && !frontRow) {
-                throw new IllegalStateException("brick face violated at " + w[0] + "," + w[1]);
-            }
-        }
+        // Top band: row 0 all caps; row 1 corners caps + x1..30 faces.
         for (int x = 0; x < MAP_W; x++) {
-            boolean top = false;
-            for (int[] w : wallTops) if (w[0] == x && w[1] == 0) top = true;
-            if (!top) {
+            if (!containsCell(wallTops, x, 0)) {
                 throw new IllegalStateException("top cap gap at x=" + x);
             }
         }
-        // Top corner terminators must be caps, not brick.
         if (!containsCell(wallTops, 0, 1) || !containsCell(wallTops, MAP_W - 1, 1)) {
             throw new IllegalStateException("corner caps missing at (0,1)/(31,1)");
         }
         for (int x = 1; x < MAP_W - 1; x++) {
-            boolean brick = false;
-            for (int[] w : wallBodies) if (w[0] == x && w[1] == 1) brick = true;
-            if (!brick) {
+            if (!containsCell(wallBodies, x, 1)) {
                 throw new IllegalStateException("top brick gap at x=" + x);
             }
         }
-        // Front 3D wrap: row 30 caps minus gate, row 31 bricks (corners W) minus gate.
-        for (int x = 0; x < MAP_W; x++) {
-            if (x == 15 || x == 16) continue;
-            if (!containsCell(wallTops, x, MAP_H - 2)) {
-                throw new IllegalStateException("front cap gap at x=" + x);
-            }
-            if (!containsCell(wallBodies, x, MAP_H - 1)) {
-                throw new IllegalStateException("front brick gap at x=" + x);
+        // Bar sides col 0/31 rows 2..12 caps; row 13 outer faces wrap.
+        for (int y = 2; y <= 12; y++) {
+            if (!containsCell(wallTops, 0, y) || !containsCell(wallTops, MAP_W - 1, y)) {
+                throw new IllegalStateException("bar side cap gap at y=" + y);
             }
         }
-        // Side caps: Wall Top may show on sides, brick may not.
-        int sideCapExpect = (MAP_H - 2 - 2);
-        int sideCaps = 0;
-        for (int[] w : wallTops) {
-            if ((w[0] == 0 || w[0] == MAP_W - 1) && w[1] >= 2 && w[1] < MAP_H - 2) sideCaps++;
+        // Bar-bottom band: row 12 caps + row 13 faces outside the x10..21 opening.
+        for (int x = 0; x <= 9; x++) {
+            if (!containsCell(wallTops, x, 12) || !containsCell(wallBodies, x, 13)) {
+                throw new IllegalStateException("bar-bottom west gap at x=" + x);
+            }
         }
-        if (sideCaps != sideCapExpect * 2) {
-            throw new IllegalStateException("side caps must be " + (sideCapExpect * 2) + ", have " + sideCaps);
+        for (int x = 22; x < MAP_W; x++) {
+            if (!containsCell(wallTops, x, 12) || !containsCell(wallBodies, x, 13)) {
+                throw new IllegalStateException("bar-bottom east gap at x=" + x);
+            }
+        }
+        if (!containsCell(wallTops, 10, 13) || !containsCell(wallTops, 21, 13)) {
+            throw new IllegalStateException("stem junction caps missing at (10,13)/(21,13)");
+        }
+        // Inner T corners: caps closing the junction mouth at row 12.
+        if (!containsCell(wallTops, 10, 12) || !containsCell(wallTops, 21, 12)) {
+            throw new IllegalStateException("junction corner caps missing at (10,12)/(21,12)");
+        }
+        for (int x = 11; x <= 20; x++) {
+            if (containsCell(wallTops, x, 12) || containsCell(wallBodies, x, 12)
+                    || containsCell(wallTops, x, 13) || containsCell(wallBodies, x, 13)) {
+                throw new IllegalStateException("junction opening blocked at x=" + x);
+            }
+        }
+        // Stem sides col 10/21 rows 14..29 caps.
+        for (int y = 14; y <= 29; y++) {
+            if (!containsCell(wallTops, 10, y) || !containsCell(wallTops, 21, y)) {
+                throw new IllegalStateException("stem cap gap at y=" + y);
+            }
+        }
+        // Front 3D wrap across the stem: row 30 caps, row 31 bricks, 1-wide gate.
+        for (int x = 10; x <= 21; x++) {
+            if (x == 15) continue;
+            if (!containsCell(wallTops, x, MAP_H - 2) || !containsCell(wallBodies, x, MAP_H - 1)) {
+                throw new IllegalStateException("front wall gap at x=" + x);
+            }
+        }
+        // Brick faces only where a T sits above: south edges of the mask.
+        for (int[] w : wallBodies) {
+            boolean topRow = w[1] == 1 && w[0] >= 1 && w[0] <= MAP_W - 2;
+            boolean barBottom = w[1] == 13 && ((w[0] <= 9) || (w[0] >= 22));
+            boolean frontRow = w[1] == MAP_H - 1 && w[0] >= 10 && w[0] <= 21;
+            if (!topRow && !barBottom && !frontRow) {
+                throw new IllegalStateException("brick face violated at " + w[0] + "," + w[1]);
+            }
+        }
+        // T-over-W structure: every face must have a cap directly above it.
+        for (int[] w : wallBodies) {
+            if (w[1] == 0 || !containsCell(wallTops, w[0], w[1] - 1)) {
+                throw new IllegalStateException("face without cap above at " + w[0] + "," + w[1]);
+            }
         }
     }
 
