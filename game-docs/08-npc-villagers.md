@@ -12,14 +12,14 @@ and dialogue below. Zones keep every part of the village covered at once.
 
 | Villager | Spawn | Home zone haunts | Dialogue stages 0 → 2 |
 |---|---|---|---|
-| MIRA | `(14,19)` stem-mid | `(14,19)`, `(14,22)`, `(18,18)`, `(20,19)` | “Good day! The village is peaceful today.” / “The inn is north up the road if you need a rest.” / “It is nice to see new faces around here.” |
-| Bram | `(16,12)` junction | `(20,8)`, `(14,12)`, `(9,11)`, `(6,10)` | “Fountain's east. Shops are warm.” / “Shops line the north ridge. Mind the walls.” / “Odd says stay on the road. He's right.” |
-| ODD | `(16,13)` corridor | `(18,18)`, `(20,19)`, `(14,22)`, `(16,13)` | “Stay on the road.” / “The gate is one tile wide. Single file.” / “Walls are solid. Don't bother pushing.” |
-| Pip | `(14,28)` gate | `(14,28)`, `(14,27)`, `(18,27)`, `(14,22)` | “South road goes everywhere.” / “I saw the fountain glittering yesterday.” / “Plaza's west. Can't miss it.” |
-| Sol | `(9,7)` bar-north | `(5,8)`, `(9,8)`, `(4,10)`, `(6,10)`, `(9,7)`, `(9,11)` | “Knock twice at the Inn.” / “Blue roof, north side. That's the one.” / “Quiet today. Good.” |
+| MIRA | `(13,18)` mid-south | `(13,18)`, `(18,18)`, `(13,22)`, `(19,22)` | “Good day! The village is peaceful today.” / “The inn is south, past the corridor.” / “It is nice to see new faces around here.” |
+| Bram | `(22,7)` north-east | `(22,7)`, `(18,7)`, `(28,7)`, `(22,9)` | “Smithy's west, market's east.” / “Shops line the north ridge. Mind the river.” / “Odd says stay on the path. He's right.” |
+| ODD | `(16,13)` center | `(16,13)`, `(16,14)`, `(12,14)`, `(21,14)` | “Stay on the path.” / “Bridges are one wide. Single file.” / “Walls are solid. Don't bother pushing.” |
+| Pip | `(13,28)` gate | `(13,28)`, `(18,28)`, `(13,29)`, `(18,29)` | “South gate goes everywhere.” / “I saw the fountain glittering yesterday.” / “Inn's north, past the corridor.” |
+| Sol | `(5,7)` north-west | `(5,7)`, `(3,6)`, `(10,7)`, `(5,9)` | “Tavern's east, down the lane.” / “Mind the river north.” / “Quiet today. Good.” |
 
-Roster code: `VillageScene.java:417-441`. Spawn cells are `solid` at build and
-covered by the static asserts (inside map, off trees/walls/paths/doors).
+Roster code: `VillageScene.java` `buildMap()` NPC block. Spawn cells are `solid` at build and
+covered by the static asserts (inside map, on walkable grass — never paths, doors, walls, fountain).
 
 ## 2. Mind model (FSM)
 
@@ -119,11 +119,10 @@ walls — else the cell behind the approach (`BACK_UP`). Chased dodges chain on 
 stuck `30`, push threshold `90`, minute gate `3600`
 (`VillageScene.java:31-34`).
 
-## 9. Proven headless
+## 9. Proven headless (new map)
 
-Wander ranges legal (MIRA `c6-14/r9-19`), `MOVE_ASIDE@12` vacates `@30`, talk
-shows stage 0 then `IDLE`, 5 cells solid with no dupes, tail dodge first tick,
-pinch squeeze `PASS_THROUGH@0` settling past you, pair-wall push-through,
-corner exit at tick 14, break-away commit mid-chase, 2500-tick hunts with zero
-illegal cells. Scatter run: Sol `7-11`, Bram `8-12`, ODD `13-22`, MIRA
-`18-22`, Pip holds gate while you stand at spawn (by design).
+Build asserts pass: 8 doors flood-fill reachable from spawn `(13,29)`, street
+frontage holds, wall bands continuous (115 caps / 61 bricks), 4 bridges walkable,
+fountain island solid with paths around, gate walkable, NPC spawns on grass with
+no dupes. Mind-model behavior (yielding, talk, break-away) is map-independent —
+see previous runs for the tick-level proofs.
