@@ -13,9 +13,9 @@ import javax.imageio.ImageIO;
  * FINAL village walk test: Coneria-style 32x32 town.
  *
  * <p>Grid rules: TILE=16, 2x whole scale, cell layers (ground/solid),
- * one-cell steps with tween, doors bottom-center with an entrance cell
- * in front, E works only from the entrance facing up, F3 debug overlay,
- * build-time validation that never gets removed.
+ * one-cell steps with tween, doors on the facade bottom row with an entrance cell
+ * in front (INN door off-center per spec), E works only from the entrance facing up,
+ * F3 debug overlay, build-time validation that never gets removed.
  */
 public final class VillageScene {
     // ---- 14. Constants in one place ----
@@ -34,12 +34,12 @@ public final class VillageScene {
     static final int NPC_RESUME_DIST = 4; // player must be this far before resuming
     static final int ANIM_TICKS = 6; // walk clock, separate from movement
     static final int MSG_TICKS = 300;
-    static final int SPAWN_C = 15;
+    static final int SPAWN_C = 13;
     static final int SPAWN_R = 29;
-    static final int DOOR_COUNT = 11;
+    static final int DOOR_COUNT = 8;
 
     /** Ground layer tile kinds. */
-    enum Ground { GRASS, PATH, ROAD, SQUARE, TREE, GATE }
+    enum Ground { GRASS, PATH, ROAD, SQUARE, TREE, GATE, WATER }
 
     /** Building kinds double as roof/window color keys. */
     enum Kind { INN, HOUSE, ITEM, WEAPON, ARMOR, MAGIC, BIG }
@@ -55,16 +55,19 @@ public final class VillageScene {
         final String name;
         final Kind kind;
         final int tx, ty, tw, th;
-        final int doorX, doorY; // bottom-center facade cell, walkable
+        final int doorX, doorY; // facade cell, walkable (INN off-center per spec)
         final int enterX, enterY; // walkable cell directly in front
         final String blurb;
-        final boolean shop; // lit windows + sign
+        final boolean shop; // lit windows + sign (fallback only)
         final boolean chimney;
+        int upperA = 2; // window count, first upper row (floor 2)
+        int upperB = 2; // window count, second upper row (INN 4-tall only)
+        int baseC = 1; // window count on ground/base row (door cell excluded)
         Building(String name, Kind kind, int tx, int ty, int tw, int th, String blurb,
-                 boolean shop, boolean chimney) {
+                 boolean shop, boolean chimney, int doorDX) {
             this.name = name; this.kind = kind;
             this.tx = tx; this.ty = ty; this.tw = tw; this.th = th;
-            this.doorX = tx + tw / 2; // w is odd, so this is the center
+            this.doorX = tx + doorDX;
             this.doorY = ty + th - 1; // always the bottom row
             this.enterX = doorX;
             this.enterY = doorY + 1;
@@ -121,13 +124,26 @@ public final class VillageScene {
     private final java.util.List<int[]> wallTops = new java.util.ArrayList<>();
     private final java.util.List<int[]> wallBodies = new java.util.ArrayList<>();
     private final java.util.List<int[]> invisibleBounds = new java.util.ArrayList<>();
-    private int fountainX = 19, fountainY = 17; // 2x2 top-left, east court off the spine
+    private final java.util.List<int[]> bridges = new java.util.ArrayList<>();
+    private final java.util.List<int[]> wells = new java.util.ArrayList<>();
+    private final java.util.List<int[]> fountains = new java.util.ArrayList<>();
 
     // ---- Tile sprites (32x32 source art, drawn 1:1 to a scaled cell) ----
     private BufferedImage grassTile;
     private BufferedImage wallBrickTile;
     private BufferedImage wallTopTile;
     private BufferedImage treeTile;
+    private BufferedImage waterTile;
+    private BufferedImage pathTile;
+    private BufferedImage houseRoof;
+    private BufferedImage houseWallWindow;
+    private BufferedImage houseWallPlain;
+    private BufferedImage houseBaseWindow;
+    private BufferedImage houseBasePlain;
+    private BufferedImage houseDoorClosed;
+    private BufferedImage houseDoorOpen;
+    private BufferedImage sewerTile;
+    private final java.util.List<int[]> sewers = new java.util.ArrayList<>();
     private boolean spritesTried;
 
     // ---- Dynamic wall mask: designer intent, stamped to T/W by neighbor rule ----
@@ -145,6 +161,7 @@ public final class VillageScene {
     private String message = "";
     private int msgTimer;
     private Npc talkingNpc; // villager currently in dialogue, or null
+    private final Dialogue dialogue = new Dialogue(); // panel module
     private int stuckT; // ticks the player pushes into a block with no progress
     private int lastPc = -1, lastPr = -1;
     private final java.util.Random rng = new java.util.Random(7); // fixed routine seed
@@ -188,7 +205,7 @@ public final class VillageScene {
         snapRender();
         animT = 0;
         walkFrame = 0;
-        message = "North, past the fountain — the Inn has a blue roof.";
+        message = "North past the fountain — the Inn has a red roof.";
         msgTimer = MSG_TICKS;
     }
 
@@ -230,66 +247,50 @@ public final class VillageScene {
         solid[c][r] = true;
     }
 
-    // ---- 7a. Top of the T: full-width cap ring + inset top bricks ----
+    // ---- 7a. Top band: full-width rows 3-4 ----
     // Designers add footprint cells to wallMask; stampWallsDynamic() resolves T/W.
     private void wall(int c, int r) {
         if (isInsideMap(c, r)) wallMask[c][r] = true;
     }
 
-    private void buildTopWall() {
-        // Full top cap line + face row inset; corners left as mask for caps.
-        for (int x = 0; x < MAP_W; x++) {
-            wall(x, 0);
-            wall(x, 1);
+    private void wallRect(int x0, int y0, int w, int h) {
+        for (int y = y0; y < y0 + h; y++) {
+            for (int x = x0; x < x0 + w; x++) wall(x, y);
         }
     }
 
-    // ---- 7b. Bar sides: cap columns down to the bar-bottom band ----
+    private void buildTopWall() {
+        wallRect(0, 3, MAP_W, 2);
+    }
+
+    // ---- 7b. Side columns down to the bottom band ----
     private void buildSideCaps() {
-        // Inner cols 1 / 30 stay walkable; bar interior spans full width to row 11.
-        for (int y = 2; y <= 12; y++) {
+        for (int y = 5; y <= 24; y++) {
             wall(0, y);
             wall(MAP_W - 1, y);
         }
     }
 
-    // ---- 7c. Bar-bottom band: T junction floor of the top bar ----
-    // Row 12 caps (opening x11..20), row 13 faces/caps: outer faces wrap like the
-    // front for 3D thickness, x10/x21 resolve as caps against the stem walls.
-    // (10,12)/(21,12) are inner corner caps closing the junction mouth.
-    private void buildBarBottom() {
-        for (int x = 0; x <= 9; x++) {
-            wall(x, 12);
-            wall(x, 13);
-        }
-        for (int x = 22; x < MAP_W; x++) {
-            wall(x, 12);
-            wall(x, 13);
-        }
-        wall(10, 12);
-        wall(21, 12);
-        wall(10, 13);
-        wall(21, 13);
+    // ---- 7c. Bottom band rows 23-24, opening cols 10-20 (B8 + lanes) ----
+    private void buildBottomBand() {
+        wallRect(0, 23, 10, 2); // cols 0-9 (col 0 already masked by the side)
+        wallRect(21, 23, 11, 2); // cols 21-31 (col 31 already masked by the side)
     }
 
-    // ---- 7d. Stem walls: corridor sides down to the front ----
+    // ---- 7d. Stem corridor walls col 9 / col 21, rows 25-29 ----
     private void buildStemWalls() {
-        for (int y = 14; y <= 29; y++) {
-            wall(10, y);
+        for (int y = 25; y <= 31; y++) {
+            wall(9, y);
             wall(21, y);
         }
     }
 
-    // ---- 7e. Front wall: top-to-bottom T then W across the stem, gate open ----
+    // ---- 7e. Front wall rows 30-31 cols 9-21, 1-wide gate at x15 ----
     private void buildFrontWall() {
-        // First layer row 30 = caps (1-wide gate at x15), last layer row 31 = bricks.
-        for (int x = 10; x <= 21; x++) {
+        // Corners come from the stem mask; middle skips the gate.
+        for (int x = 10; x <= 20; x++) {
             if (x != 15) {
                 wall(x, MAP_H - 2);
-            }
-        }
-        for (int x = 10; x <= 21; x++) {
-            if (x != 15) {
                 wall(x, MAP_H - 1);
             }
         }
@@ -312,14 +313,47 @@ public final class VillageScene {
         }
     }
 
-    /** Lazy-load 32x32 tile art from classpath, with project-root fallback. */
+    /** Lazy-load 32x32 tile art from classpath; missing art fails fast (no procedural fallback). */
     private void ensureSprites() {
         if (spritesTried) return;
         spritesTried = true;
-        grassTile = loadTile("/assets/tiles/grass.png");
-        wallBrickTile = loadTile("/assets/tiles/wall_brick.png");
-        wallTopTile = loadTile("/assets/tiles/wall_top.png");
-        treeTile = loadTile("/assets/tiles/tree.png");
+        grassTile = requireTile("/assets/tiles/grass.png");
+        wallBrickTile = requireTile("/assets/tiles/wall_brick.png");
+        wallTopTile = requireTile("/assets/tiles/wall_top.png");
+        treeTile = requireTile("/assets/tiles/tree.png");
+        waterTile = requireTile("/assets/tiles/water.png");
+        pathTile = requireTile("/assets/tiles/path.png");
+        houseRoof = requireTile("/assets/tiles/house_roof.png");
+        houseWallWindow = requireTile("/assets/tiles/house_wall_window.png");
+        houseWallPlain = requireTile("/assets/tiles/house_wall_plain.png");
+        houseBaseWindow = requireTile("/assets/tiles/house_wall_base_window.png");
+        houseBasePlain = requireTile("/assets/tiles/house_wall_base_plain.png");
+        houseDoorClosed = requireTile("/assets/tiles/house_door_closed.png");
+        houseDoorOpen = requireTile("/assets/tiles/house_door_open.png");
+        sewerTile = requireTile("/assets/tiles/sewer.png");
+    }
+
+    private BufferedImage requireTile(String resourcePath) {
+        BufferedImage img = loadTile(resourcePath);
+        if (img == null) throw new IllegalStateException("Missing tile art: " + resourcePath);
+        return img;
+    }
+
+    /** River water with a bridge deck override (walkable crossing). */
+    private void water(int c, int r) {
+        ground[c][r] = Ground.WATER;
+        solid[c][r] = true;
+    }
+
+    private void bridge(int c, int r) {
+        bridges.add(new int[]{c, r});
+        solid[c][r] = false; // overrides the river's impassable state
+    }
+
+    /** Stone well: 1x1 solid prop drawn with a dark mouth + rim. */
+    private void well(int c, int r) {
+        wells.add(new int[]{c, r});
+        solid[c][r] = true;
     }
 
     private BufferedImage loadTile(String resourcePath) {
@@ -334,8 +368,13 @@ public final class VillageScene {
     }
 
     private void building(String name, Kind kind, int tx, int ty, int tw, int th,
-                          String blurb, boolean shop, boolean chimney) {
-        Building b = new Building(name, kind, tx, ty, tw, th, blurb, shop, chimney);
+                          String blurb, boolean shop, boolean chimney, int doorDX,
+                          int upperA, int upperB, int baseC) {
+        Building b = new Building(name, kind, tx, ty, tw, th, blurb, shop, chimney, doorDX);
+        b.upperA = Math.max(1, Math.min(upperA, tw));
+        b.upperB = Math.max(1, Math.min(upperB, tw));
+        // Base row excludes the door cell, so cap at tw-1.
+        b.baseC = Math.max(1, Math.min(baseC, tw - 1));
         buildings.add(b);
         for (int y = ty; y < ty + th; y++) {
             for (int x = tx; x < tx + tw; x++) {
@@ -348,6 +387,39 @@ public final class VillageScene {
         }
     }
 
+    /** Centered window pick: columns nearest the middle first (symmetric facades). */
+    private boolean upperHasWindow(Building b, int upperRow, int lx) {
+        int want = (upperRow == 0) ? b.upperA : b.upperB;
+        return centeredPick(b.tw, want, lx, -1);
+    }
+
+    private boolean baseHasWindow(Building b, int lx) {
+        int doorLx = b.doorX - b.tx;
+        return centeredPick(b.tw, b.baseC, lx, doorLx);
+    }
+
+    /** Pick `want` columns of width `w`, nearest-center first; skip `skip` (-1 = none). */
+    private static boolean centeredPick(int w, int want, int lx, int skip) {
+        if (lx == skip) return false;
+        int order = 0;
+        int selfRank = Integer.MAX_VALUE;
+        // Rank by distance to center, ties prefer left of center for determinism.
+        double center = (w - 1) / 2.0;
+        java.util.TreeMap<Double, java.util.ArrayList<Integer>> byDist = new java.util.TreeMap<>();
+        for (int i = 0; i < w; i++) {
+            if (i == skip) continue;
+            double d = Math.abs(i - center) + (i < center ? -0.001 * i : 0.001 * i);
+            byDist.computeIfAbsent(d, k -> new java.util.ArrayList<>()).add(i);
+        }
+        for (java.util.ArrayList<Integer> grp : byDist.values()) {
+            for (int i : grp) {
+                if (i == lx) selfRank = order;
+                order++;
+            }
+        }
+        return selfRank < want;
+    }
+
     private void buildMap() {
         for (int y = 0; y < MAP_H; y++) {
             for (int x = 0; x < MAP_W; x++) {
@@ -355,89 +427,91 @@ public final class VillageScene {
             }
         }
 
-        // ---- 4. Paths: 1-line spine continuous, lane, plaza court, gate ----
-        fillGround(15, 8, 1, 23, Ground.ROAD);   // spine rows 8-30 col 15, unbroken
-        fillGround(3, 8, 26, 1, Ground.ROAD);    // north lane row 8 cols 3-28
-        fillGround(3, 9, 5, 3, Ground.SQUARE);   // west plaza court cols 3-7 rows 9-11
+        // ---- 4. Paths: decoded loop network from new-village-map.png ----
+        // Cobble everywhere; bridges (walkable) where paths cross the river.
+        fillGround(4, 10, 14, 1, Ground.PATH);  // north lane row 10 cols 4-17
+        fillGround(4, 11, 1, 10, Ground.PATH);  // west loop col 4 rows 11-20
+        fillGround(17, 11, 1, 12, Ground.PATH); // middle loop col 17 rows 11-22
+        fillGround(18, 12, 13, 1, Ground.PATH); // east lane row 12 cols 18-30
+        fillGround(30, 13, 1, 8, Ground.PATH);  // east loop col 30 rows 13-20
+        fillGround(5, 20, 12, 1, Ground.PATH);  // south lane row 20 cols 5-16
+        fillGround(18, 20, 12, 1, Ground.PATH); // south lane row 20 cols 18-29
+        fillGround(10, 21, 1, 7, Ground.PATH);  // corridor west col 10 rows 21-27
+        fillGround(15, 21, 1, 9, Ground.PATH);  // gate column col 15 rows 21-29
+        fillGround(16, 22, 1, 1, Ground.PATH);  // path nub (16,22)
+        fillGround(11, 27, 4, 1, Ground.PATH);  // inn frontage row 27 cols 11-14
         ground[15][30] = Ground.GATE; // gate floor, 1-wide at x15, rows 30-31 walkable
         ground[15][31] = Ground.GATE;
 
-        // Fountain 2x2, solid, walked around inside the plaza.
-        for (int y = 0; y < 2; y++) {
-            for (int x = 0; x < 2; x++) {
-                solid[fountainX + x][fountainY + y] = true;
-            }
-        }
+        // ---- River: north edge entry, mid run, east moat, SE off-map exit ----
+        for (int r = 0; r <= 2; r++) water(15, r);
+        for (int r = 5; r <= 9; r++) water(15, r);
+        water(15, 11);
+        for (int c = 1; c <= 3; c++) water(c, 12);
+        for (int c = 5; c <= 15; c++) water(c, 12);
+        water(15, 13); water(15, 14); water(15, 15); water(15, 16); water(16, 16);
+        for (int c = 18; c <= 23; c++) water(c, 16);
+        water(23, 17); water(23, 18); water(23, 19);
+        water(23, 21); water(23, 22);
+        for (int r = 25; r <= 29; r++) water(23, r);
+        for (int c = 24; c <= 29; c++) water(c, 29);
+        water(29, 30); water(29, 31);
+        // Bridges: cobble path over water, walkable.
+        bridge(15, 10); bridge(4, 12); bridge(17, 16); bridge(23, 20);
 
-        // ---- 5. Buildings: 11 doors, bottom-center, facing south, all inside the T ----
-        // Bar-north band rows 3-6, lane row 8, junction band rows 10-12 (road col 15 clear),
-        // stem columns x11-13 / x17-19 flanking the spine.
-        building("INN", Kind.INN, 3, 3, 5, 4, "Inn — rest up for the road ahead.", true, true);
-        building("HOUSE", Kind.HOUSE, 10, 4, 3, 3, "A quiet house. The door is locked.", false, true);
-        building("WEAPON", Kind.WEAPON, 17, 4, 5, 3, "Weapon shop — blades over the door.", true, false);
-        building("ARMOR", Kind.ARMOR, 24, 4, 5, 3, "Armor shop — plate and mail.", true, false);
-        building("HOUSE", Kind.HOUSE, 11, 10, 3, 3, "A quiet house. The door is locked.", false, false);
-        building("ITEM", Kind.ITEM, 17, 10, 3, 3, "Item shop — odds and ends.", true, false);
-        building("MAGIC", Kind.MAGIC, 11, 14, 3, 3, "Magic shop — it hums.", true, false);
-        building("HOUSE", Kind.HOUSE, 11, 19, 3, 3, "A quiet house. The door is locked.", false, false);
-        building("HOUSE", Kind.HOUSE, 11, 24, 3, 3, "A quiet house. The door is locked.", false, false);
-        building("HOUSE", Kind.HOUSE, 17, 14, 3, 3, "A quiet house. The door is locked.", false, false);
-        building("HOUSE", Kind.HOUSE, 17, 19, 3, 3, "A quiet house. The door is locked.", false, false);
+        // Fountain: single teal cell, solid island amid paths, water sprite.
+        fountains.add(new int[]{16, 21});
+        solid[16][21] = true;
 
-        // ---- 7. T-shaped perimeter walls (structured + dynamic stamp) ----
-        // Top bar full width, stem corridor x10..21 down to a stem-width front.
-        // Grass covers the whole map first, so there is grass inside + outside.
+        // ---- 5. Buildings: 8 doors, 7 canonical + 1 house, all 3x4 ----
+        // Single straight roof row + 2 floors (upper window/plain, ground base + door).
+        building("TAVERN", Kind.HOUSE, 7, 6, 3, 4, "Tavern — rumors and drinks over the counter.", true, false, 1, 3, 2, 2);
+        building("MENTOR", Kind.HOUSE, 12, 6, 3, 4, "Mentor's house — train field skills here.", false, false, 1, 2, 1, 1);
+        building("BLACKSMITH", Kind.WEAPON, 19, 8, 3, 4, "Blacksmith — blades over the door.", true, false, 1, 3, 2, 2);
+        building("MARKET", Kind.ITEM, 24, 8, 3, 4, "Market — potions and supplies.", true, false, 1, 1, 2, 1);
+        building("HOUSE", Kind.HOUSE, 1, 13, 3, 4, "A quiet house. The door is locked.", false, false, 1, 2, 3, 1);
+        building("WIZARD", Kind.MAGIC, 6, 16, 3, 4, "Wizard's domain — it hums.", true, false, 1, 1, 2, 2);
+        building("SANCTUARY", Kind.HOUSE, 26, 16, 3, 4, "Sanctuary — the rite revives the fallen.", false, false, 1, 2, 1, 1);
+        building("INN", Kind.INN, 12, 23, 3, 4, "Inn — rest up for the road ahead.", true, false, 1, 3, 2, 2);
+
+        // ---- 7. Outer-rectangle perimeter walls (structured + dynamic stamp) ----
+        // Top band full width, side columns to the bottom band, south stem corridor
+        // to a stem-width front. Grass covers the whole map first, inside + outside.
         buildTopWall();
         buildSideCaps();
-        buildBarBottom();
+        buildBottomBand();
         buildStemWalls();
         buildFrontWall();
         stampWallsDynamic();
-        // Corner forests inside the bar + edge clusters (off paths/doors).
-        for (int x = 5; x <= 6; x++) tree(x, 2);
-        for (int x = 19; x <= 20; x++) tree(x, 2);
-        for (int y = 3; y <= 7; y++) { tree(2, y); tree(29, y); }
-        tree(2, 8); tree(2, 9); tree(2, 10); tree(2, 11);
-        tree(29, 8); tree(29, 9); tree(29, 10); tree(29, 11);
-        tree(27, 9); tree(28, 9);
-        // Stem edge trees flanking the spine, clear of road/doors.
-        tree(11, 18); tree(11, 23);
-        tree(20, 16); tree(20, 23);
-        tree(13, 27); tree(18, 27);
-        // Outside backdrop groves (unreachable decor, grass elsewhere outside).
-        tree(3, 16); tree(4, 16); tree(3, 20); tree(5, 24);
-        tree(27, 16); tree(28, 20); tree(26, 24); tree(4, 27); tree(28, 27);
+        // No trees on this map (all greens are grass checker); no fences/wells yet
+        // (deferred cells stay walkable grass); sewer system dormant (no wall-river
+        // meeting — the moat exits off-map at the open SE edge).
 
-        // Fences (solid props, inside the stem clear of road/doors).
-        fences.add(new int[]{14, 23}); fences.add(new int[]{14, 24});
-        fences.add(new int[]{16, 23}); fences.add(new int[]{16, 24});
-        for (int[] f : fences) solid[f[0]][f[1]] = true;
-
-        // NPCs spread over every part of the village, each with a home zone.
-        npcs.add(new Npc("MIRA", 14, 19, VillagePalette.WATER, true,
-                new int[][]{{14, 19}, {14, 22}, {18, 18}, {20, 19}},
+        // NPCs rehomed to the new regions, each with a home zone.
+        npcs.add(new Npc("MIRA", 13, 18, VillagePalette.WATER, true,
+                new int[][]{{13, 18}, {18, 18}, {13, 22}, {19, 22}},
                 "Mira: \"Good day! The village is peaceful today.\"",
-                "Mira: \"The inn is north up the road if you need a rest.\"",
+                "Mira: \"The inn is south, past the corridor.\"",
                 "Mira: \"It is nice to see new faces around here.\""));
-        npcs.add(new Npc("Bram", 16, 12, VillagePalette.ROOF_WEAPON, true,
-                new int[][]{{20, 8}, {14, 12}, {9, 11}, {6, 10}},
-                "Bram: \"Fountain's east. Shops are warm.\"",
-                "Bram: \"Shops line the north ridge. Mind the walls.\"",
-                "Bram: \"Odd says stay on the road. He's right.\""));
+        npcs.add(new Npc("Bram", 22, 7, VillagePalette.ROOF_WEAPON, true,
+                new int[][]{{22, 7}, {18, 7}, {28, 7}, {22, 9}},
+                "Bram: \"Smithy's west, market's east.\"",
+                "Bram: \"Shops line the north ridge. Mind the river.\"",
+                "Bram: \"Odd says stay on the path. He's right.\""));
         npcs.add(new Npc("ODD", 16, 13, VillagePalette.ROOF_MAGIC, true,
-                new int[][]{{18, 18}, {20, 19}, {14, 22}, {16, 13}},
-                "Odd: \"Stay on the road.\"",
-                "Odd: \"The gate is one tile wide. Single file.\"",
+                new int[][]{{16, 13}, {16, 14}, {12, 14}, {21, 14}},
+                "Odd: \"Stay on the path.\"",
+                "Odd: \"Bridges are one wide. Single file.\"",
                 "Odd: \"Walls are solid. Don't bother pushing.\""));
-        npcs.add(new Npc("Pip", 14, 28, VillagePalette.ROOF_ITEM, true,
-                new int[][]{{14, 28}, {14, 27}, {18, 27}, {14, 22}},
-                "Pip: \"South road goes everywhere.\"",
+        npcs.add(new Npc("Pip", 13, 28, VillagePalette.ROOF_ITEM, true,
+                new int[][]{{13, 28}, {18, 28}, {13, 29}, {18, 29}},
+                "Pip: \"South gate goes everywhere.\"",
                 "Pip: \"I saw the fountain glittering yesterday.\"",
-                "Pip: \"Plaza's west. Can't miss it.\""));
-        npcs.add(new Npc("Sol", 9, 7, VillagePalette.ROOF_HOUSE, true,
-                new int[][]{{5, 8}, {9, 8}, {4, 10}, {6, 10}, {9, 7}, {9, 11}},
-                "Sol: \"Knock twice at the Inn.\"",
-                "Sol: \"Blue roof, north side. That's the one.\"",
+                "Pip: \"Inn's north, past the corridor.\""));
+        npcs.add(new Npc("Sol", 5, 7, VillagePalette.ROOF_HOUSE, true,
+                new int[][]{{5, 7}, {3, 6}, {10, 7}, {5, 9}},
+                "Sol: \"Tavern's east, down the lane.\"",
+                "Sol: \"Mind the river north.\"",
                 "Sol: \"Quiet today. Good.\""));
         for (Npc n : npcs) {
             n.idleT = 120 + rng.nextInt(180);
@@ -446,7 +520,7 @@ public final class VillageScene {
 
         // ---- 12. Validation (never remove) ----
         assertDoorsReachable();
-        assertPathGap();
+        assertStreetFrontage();
         assertDoorOnFacade();
         assertInsideMap();
         assertNoOverlap();
@@ -487,43 +561,31 @@ public final class VillageScene {
         }
     }
 
-    /** No path cell touches a building except through its entrance cell. */
-    private void assertPathGap() {
-        StringBuilder bad = new StringBuilder();
-        for (int y = 0; y < MAP_H; y++) {
-            for (int x = 0; x < MAP_W; x++) {
-                Ground g = ground[x][y];
-                if (g != Ground.PATH && g != Ground.ROAD && g != Ground.SQUARE && g != Ground.GATE) {
-                    continue;
-                }
-                int[][] adj = {{x + 1, y}, {x - 1, y}, {x, y + 1}, {x, y - 1}};
-                for (int[] a : adj) {
-                    if (isInsideMap(a[0], a[1]) && isBuilding[a[0]][a[1]] && !isEntranceTouch(x, y)) {
-                        bad.append('(').append(x).append(',').append(y).append(") ");
-                        break;
-                    }
-                }
+    /**
+     * Street frontage: paths may run flush against facades (urban street style),
+     * but no path ground may cover a door cell and every entrance stays walkable
+     * (checked in assertDoorOnFacade). Reachability is guarded by flood fill.
+     */
+    private void assertStreetFrontage() {
+        for (Building b : buildings) {
+            if (isPathKind(b.doorX, b.doorY)) {
+                throw new IllegalStateException("Path on door: " + b.name);
             }
         }
-        if (bad.length() > 0) {
-            throw new IllegalStateException("Path touches building: " + bad);
-        }
     }
 
-    private boolean isEntranceTouch(int x, int y) {
-        for (Building b : buildings) {
-            if (x == b.enterX && y == b.enterY) return true;
-        }
-        return false;
-    }
-
-    /** Every door is the bottom-center cell of its building. */
+    /** Every door sits on the bottom facade row with an entrance south of it. */
     private void assertDoorOnFacade() {
         for (Building b : buildings) {
-            if (b.tw % 2 == 0 || (b.th != 3 && b.th != 4)) {
+            if ((b.tw < 3 || b.tw > 5) || (b.th != 3 && b.th != 4)) {
                 throw new IllegalStateException("Bad size " + b.name + " " + b.tw + "x" + b.th);
             }
-            if (b.doorX != b.tx + b.tw / 2 || b.doorY != b.ty + b.th - 1) {
+            if (b.kind == Kind.INN && b.tw == 4) {
+                // Legacy spec facade: 4x4 rrrr/wwww/wwww/wdww, door at tx+1 (off-center).
+                if (b.th != 4 || b.doorX != b.tx + 1 || b.doorY != b.ty + b.th - 1) {
+                    throw new IllegalStateException("Door off facade: " + b.name);
+                }
+            } else if (b.doorX != b.tx + b.tw / 2 || b.doorY != b.ty + b.th - 1) {
                 throw new IllegalStateException("Door off facade: " + b.name);
             }
             if (!isInsideMap(b.enterX, b.enterY) || solid[b.enterX][b.enterY]) {
@@ -595,11 +657,11 @@ public final class VillageScene {
         }
         for (int[] f : fences) assertNotOnPath(f[0], f[1], "fence");
         for (Npc n : npcs) assertNotOnPath(n.col, n.row, "npc " + n.name);
-        assertContainedInT();
+        assertContainedInWalls();
     }
 
-    /** Every structure must sit inside the T (on walkable ground, never on a wall). */
-    private void assertContainedInT() {
+    /** Every structure must sit inside the walls (on walkable ground, never on a wall). */
+    private void assertContainedInWalls() {
         for (Building b : buildings) {
             for (int y = b.ty; y < b.ty + b.th; y++) {
                 for (int x = b.tx; x < b.tx + b.tw; x++) {
@@ -640,76 +702,103 @@ public final class VillageScene {
                 throw new IllegalStateException("bound must be solid at " + w[0] + "," + w[1]);
             }
         }
+        // Sewers (if any): front brick row only, solid, cap above. Dormant when the
+        // river meets no wall (this map's moat exits off-map at the open SE edge).
+        for (int[] sw : sewers) {
+            if (sw[1] != MAP_H - 1) {
+                throw new IllegalStateException("sewer off front row at " + sw[0] + "," + sw[1]);
+            }
+            if (!solid[sw[0]][sw[1]]) {
+                throw new IllegalStateException("sewer must be solid at " + sw[0] + "," + sw[1]);
+            }
+            if (!containsCell(wallTops, sw[0], sw[1] - 1)) {
+                throw new IllegalStateException("sewer without cap above at " + sw[0] + "," + sw[1]);
+            }
+        }
         if (solid[15][30] || solid[15][31]) {
             throw new IllegalStateException("gate must stay walkable");
         }
     }
 
-    /** T-wall continuity: caps/faces per band, brick faces front-only, gate open. */
+    /** Outer-rectangle wall continuity: caps/faces per band, 1-wide gate open. */
     private void assertTopWallContinuous() {
-        // Top band: row 0 all caps; row 1 corners caps + x1..30 faces.
+        // Top band: row 3 all caps; row 4 corners caps + x1..30 faces.
         for (int x = 0; x < MAP_W; x++) {
-            if (!containsCell(wallTops, x, 0)) {
+            if (!containsCell(wallTops, x, 3)) {
                 throw new IllegalStateException("top cap gap at x=" + x);
             }
         }
-        if (!containsCell(wallTops, 0, 1) || !containsCell(wallTops, MAP_W - 1, 1)) {
-            throw new IllegalStateException("corner caps missing at (0,1)/(31,1)");
+        if (!containsCell(wallTops, 0, 4) || !containsCell(wallTops, MAP_W - 1, 4)) {
+            throw new IllegalStateException("corner caps missing at (0,4)/(31,4)");
         }
         for (int x = 1; x < MAP_W - 1; x++) {
-            if (!containsCell(wallBodies, x, 1)) {
+            if (!containsCell(wallBodies, x, 4)) {
                 throw new IllegalStateException("top brick gap at x=" + x);
             }
         }
-        // Bar sides col 0/31 rows 2..12 caps; row 13 outer faces wrap.
-        for (int y = 2; y <= 12; y++) {
+        // Sides col 0/31 rows 5..23 caps.
+        for (int y = 5; y <= 23; y++) {
             if (!containsCell(wallTops, 0, y) || !containsCell(wallTops, MAP_W - 1, y)) {
-                throw new IllegalStateException("bar side cap gap at y=" + y);
+                throw new IllegalStateException("side cap gap at y=" + y);
             }
         }
-        // Bar-bottom band: row 12 caps + row 13 faces outside the x10..21 opening.
+        // Bottom band rows 23-24: caps on row 23, faces/bricks on row 24 outside
+        // the cols 10-20 opening (B8 roof + lanes pass through, no wall cells).
         for (int x = 0; x <= 9; x++) {
-            if (!containsCell(wallTops, x, 12) || !containsCell(wallBodies, x, 13)) {
-                throw new IllegalStateException("bar-bottom west gap at x=" + x);
+            if (!containsCell(wallTops, x, 23)) {
+                throw new IllegalStateException("bottom-band west cap gap at x=" + x);
+            }
+        }
+        for (int x = 21; x < MAP_W; x++) {
+            if (!containsCell(wallTops, x, 23)) {
+                throw new IllegalStateException("bottom-band east cap gap at x=" + x);
+            }
+        }
+        for (int x = 10; x <= 20; x++) {
+            if (containsCell(wallTops, x, 23) || containsCell(wallBodies, x, 23)
+                    || containsCell(wallTops, x, 24) || containsCell(wallBodies, x, 24)) {
+                throw new IllegalStateException("bottom opening blocked at x=" + x);
+            }
+        }
+        if (!containsCell(wallTops, 9, 24) || !containsCell(wallTops, 21, 24)) {
+            throw new IllegalStateException("stem junction caps missing at (9,24)/(21,24)");
+        }
+        for (int x = 0; x <= 8; x++) {
+            if (!containsCell(wallBodies, x, 24)) {
+                throw new IllegalStateException("bottom-band west brick gap at x=" + x);
             }
         }
         for (int x = 22; x < MAP_W; x++) {
-            if (!containsCell(wallTops, x, 12) || !containsCell(wallBodies, x, 13)) {
-                throw new IllegalStateException("bar-bottom east gap at x=" + x);
+            if (!containsCell(wallBodies, x, 24)) {
+                throw new IllegalStateException("bottom-band east brick gap at x=" + x);
             }
         }
-        if (!containsCell(wallTops, 10, 13) || !containsCell(wallTops, 21, 13)) {
-            throw new IllegalStateException("stem junction caps missing at (10,13)/(21,13)");
-        }
-        // Inner T corners: caps closing the junction mouth at row 12.
-        if (!containsCell(wallTops, 10, 12) || !containsCell(wallTops, 21, 12)) {
-            throw new IllegalStateException("junction corner caps missing at (10,12)/(21,12)");
-        }
-        for (int x = 11; x <= 20; x++) {
-            if (containsCell(wallTops, x, 12) || containsCell(wallBodies, x, 12)
-                    || containsCell(wallTops, x, 13) || containsCell(wallBodies, x, 13)) {
-                throw new IllegalStateException("junction opening blocked at x=" + x);
-            }
-        }
-        // Stem sides col 10/21 rows 14..29 caps.
-        for (int y = 14; y <= 29; y++) {
-            if (!containsCell(wallTops, 10, y) || !containsCell(wallTops, 21, y)) {
+        // Stem sides col 9/21 rows 25..29 caps.
+        for (int y = 25; y <= 29; y++) {
+            if (!containsCell(wallTops, 9, y) || !containsCell(wallTops, 21, y)) {
                 throw new IllegalStateException("stem cap gap at y=" + y);
             }
         }
         // Front 3D wrap across the stem: row 30 caps, row 31 bricks, 1-wide gate.
-        for (int x = 10; x <= 21; x++) {
+        // Sewers (if any) replace a brick with cap above; validated separately.
+        for (int x = 9; x <= 21; x++) {
             if (x == 15) continue;
+            if (isSewer(x, MAP_H - 1)) {
+                if (!containsCell(wallTops, x, MAP_H - 2)) {
+                    throw new IllegalStateException("front sewer cap gap at x=" + x);
+                }
+                continue;
+            }
             if (!containsCell(wallTops, x, MAP_H - 2) || !containsCell(wallBodies, x, MAP_H - 1)) {
                 throw new IllegalStateException("front wall gap at x=" + x);
             }
         }
         // Brick faces only where a T sits above: south edges of the mask.
         for (int[] w : wallBodies) {
-            boolean topRow = w[1] == 1 && w[0] >= 1 && w[0] <= MAP_W - 2;
-            boolean barBottom = w[1] == 13 && ((w[0] <= 9) || (w[0] >= 22));
-            boolean frontRow = w[1] == MAP_H - 1 && w[0] >= 10 && w[0] <= 21;
-            if (!topRow && !barBottom && !frontRow) {
+            boolean topRow = w[1] == 4 && w[0] >= 1 && w[0] <= MAP_W - 2;
+            boolean bottomBand = w[1] == 24 && ((w[0] <= 8) || (w[0] >= 22));
+            boolean frontRow = w[1] == MAP_H - 1 && w[0] >= 9 && w[0] <= 21;
+            if (!topRow && !bottomBand && !frontRow) {
                 throw new IllegalStateException("brick face violated at " + w[0] + "," + w[1]);
             }
         }
@@ -803,11 +892,21 @@ public final class VillageScene {
         if (in.drainTalkPressed()) interact();
         trackStuck(want);
         updateNpcs();
+        // Walked away mid-chat: shut the panel so no frozen box lingers.
+        if (dialogue.isOpen()) {
+            int dc = Math.abs(col - dialogue.speakerCol()) + Math.abs(row - dialogue.speakerRow());
+            if (dc > 2) {
+                dialogue.close();
+                talkingNpc = null;
+                message = "";
+                msgTimer = 0;
+            }
+        }
         boolean f3 = in.isHeld(KeyEvent.VK_F3);
         if (f3 && !prevF3) debug = !debug;
         prevF3 = f3;
 
-        if (msgTimer > 0 && --msgTimer == 0) message = "";
+        if (msgTimer > 0 && !dialogue.isOpen() && --msgTimer == 0) message = "";
         fpsFrames++;
         long now = System.currentTimeMillis();
         if (now - fpsLast >= 1000) {
@@ -831,6 +930,19 @@ public final class VillageScene {
 
     /** E works only on the entrance cell, facing up at the door. */
     private void interact() {
+        // An open panel eats the press: advance, or close when done talking.
+        if (dialogue.isOpen()) {
+            String t = dialogue.advance();
+            if (t == null) {
+                talkingNpc = null;
+                message = "";
+                msgTimer = 0;
+            } else {
+                message = t;
+                msgTimer = MSG_TICKS;
+            }
+            return;
+        }
         for (Building b : buildings) {
             if (col == b.enterX && row == b.enterY && facing == Dir.UP
                     && col + facing.dx == b.doorX && row + facing.dy == b.doorY) {
@@ -844,15 +956,15 @@ public final class VillageScene {
         int fy = row + facing.dy;
         for (Npc n : npcs) {
             if (fx == n.col && fy == n.row) {
-                // Face each other, freeze the routine, advance one dialogue stage.
+                // Face each other, freeze the routine, open the panel.
                 n.state = NpcState.TALKING;
                 n.breaking = false;
                 n.stepping = false;
                 n.snap(); // logical cell already moved at step begin; re-sync render
                 n.facing = dirTo(n.col, n.row, col, row);
                 talkingNpc = n;
-                message = n.lines[n.stage % n.lines.length];
-                n.stage++;
+                dialogue.open(n);
+                message = dialogue.advance();
                 msgTimer = MSG_TICKS;
                 return;
             }
@@ -1457,22 +1569,17 @@ public final class VillageScene {
             int c1 = Math.min(MAP_W - 1, (camX + VIEW_TX * TILE) / TILE + 1);
             int r1 = Math.min(MAP_H - 1, (camY + VIEW_TY * TILE) / TILE + 1);
 
-            // Ground + paths with darker edges (corner/T/cross fall out of neighbors).
+            // Ground sprites only (cobble carries its own edging; no edge lines).
             for (int r = r0; r <= r1; r++) {
                 for (int c = c0; c <= c1; c++) {
                     paintGround(g2, offX, offY, c, r);
                 }
             }
-            for (int r = r0; r <= r1; r++) {
-                for (int c = c0; c <= c1; c++) {
-                    paintPathEdge(g2, offX, offY, c, r);
-                }
-            }
 
-            // Fountain water + rim.
-            paintFountain(g2, offX, offY);
+            // Fountain cells (water sprite, solid islands).
+            paintFountains(g2, offX, offY);
 
-            // Y-sorted Layer 2: building bases, wall caps/faces, tree trunks, fences, NPCs, player.
+            // Y-sorted Layer 2: building bases, wall caps/faces, tree trunks, NPCs, player.
             // Roofs/canopies/wall faces re-appear in the Layer 3 pass below (overhead).
             java.util.TreeMap<Integer, java.util.List<Runnable>> order = new java.util.TreeMap<>();
             for (Building b : buildings) {
@@ -1486,6 +1593,12 @@ public final class VillageScene {
                 order.computeIfAbsent(baseY * 4 + 2, k -> new java.util.ArrayList<>())
                         .add(() -> drawWallBrick(g2, offX, offY, w[0], w[1]));
             }
+            for (int[] sw : sewers) {
+                if (sw[0] < c0 - 1 || sw[0] > c1 + 1 || sw[1] < r0 - 1 || sw[1] > r1 + 1) continue;
+                int baseY = (sw[1] + 1) * TILE;
+                order.computeIfAbsent(baseY * 4 + 2, k -> new java.util.ArrayList<>())
+                        .add(() -> drawWallBrick(g2, offX, offY, sw[0], sw[1]));
+            }
             for (int[] w : wallTops) {
                 if (w[0] < c0 - 1 || w[0] > c1 + 1 || w[1] < r0 - 1 || w[1] > r1 + 1) continue;
                 int baseY = (w[1] + 1) * TILE;
@@ -1497,11 +1610,6 @@ public final class VillageScene {
                 int baseY = (t[1] + 1) * TILE;
                 order.computeIfAbsent(baseY * 4 + 2, k -> new java.util.ArrayList<>())
                         .add(() -> drawTreeTrunk(g2, offX, offY, t[0], t[1]));
-            }
-            for (int[] f : fences) {
-                int baseY = (f[1] + 1) * TILE;
-                order.computeIfAbsent(baseY * 4 + 2, k -> new java.util.ArrayList<>())
-                        .add(() -> drawFence(g2, offX, offY, f[0], f[1]));
             }
             for (Npc n : npcs) {
                 int baseY = (int) (n.renderCy + 13);
@@ -1534,38 +1642,23 @@ public final class VillageScene {
         int s = TILE * SCALE;
         int x = offX + (c * TILE - camX) * SCALE;
         int y = offY + (r * TILE - camY) * SCALE;
-        switch (ground[c][r]) {
-            case GRASS -> {
-                if (grassTile != null) {
-                    g2.drawImage(grassTile, x, y, s, s, null);
-                } else {
-                    // Fallback two-tone checker + fixed dark patches (same every run).
-                    if ((c + r) % 2 == 0) g2.setColor(VillagePalette.GRASS_TONE2);
-                    else g2.setColor(VillagePalette.GRASS);
-                    g2.fillRect(x, y, s, s);
-                    if ((c * 7 + r * 13) % 29 == 0) {
-                        g2.setColor(VillagePalette.GRASS_DARK);
-                        g2.fillRect(x + s / 4, y + s / 4, s / 2, s / 2);
-                    }
-                }
-            }
-            case TREE -> {
-                if (grassTile != null) {
-                    g2.drawImage(grassTile, x, y, s, s, null);
-                } else {
-                    g2.setColor(VillagePalette.GRASS);
-                    g2.fillRect(x, y, s, s);
-                }
-            }
-            case PATH, ROAD, GATE -> {
-                g2.setColor(VillagePalette.PATH);
-                g2.fillRect(x, y, s, s);
-            }
-            case SQUARE -> {
-                g2.setColor(VillagePalette.PLAZA);
-                g2.fillRect(x, y, s, s);
-            }
+        // Bridges render the same cobble as paths (walkable river crossings).
+        if (isBridge(c, r)) {
+            g2.drawImage(pathTile, x, y, s, s, null);
+            return;
         }
+        switch (ground[c][r]) {
+            case GRASS, TREE -> g2.drawImage(grassTile, x, y, s, s, null);
+            case PATH, ROAD, GATE, SQUARE -> g2.drawImage(pathTile, x, y, s, s, null);
+            case WATER -> g2.drawImage(waterTile, x, y, s, s, null);
+        }
+    }
+
+    private boolean isBridge(int c, int r) {
+        for (int[] b : bridges) {
+            if (b[0] == c && b[1] == r) return true;
+        }
+        return false;
     }
 
     private boolean isPathKind(int c, int r) {
@@ -1574,118 +1667,58 @@ public final class VillageScene {
         return g == Ground.PATH || g == Ground.ROAD || g == Ground.SQUARE || g == Ground.GATE;
     }
 
-    private void paintPathEdge(Graphics2D g2, int offX, int offY, int c, int r) {
-        if (!isPathKind(c, r)) return;
-        Color edge = ground[c][r] == Ground.SQUARE ? VillagePalette.PLAZA_EDGE : VillagePalette.PATH_EDGE;
-        g2.setColor(edge);
+    /** Fountain cells: solid islands drawn with the water sprite. */
+    private void paintFountains(Graphics2D g2, int offX, int offY) {
+        ensureSprites();
         int s = TILE * SCALE;
-        int x = offX + (c * TILE - camX) * SCALE;
-        int y = offY + (r * TILE - camY) * SCALE;
-        int e = 2; // edge thickness in screen px
-        if (!isPathKind(c, r - 1)) g2.fillRect(x, y, s, e);
-        if (!isPathKind(c, r + 1)) g2.fillRect(x, y + s - e, s, e);
-        if (!isPathKind(c - 1, r)) g2.fillRect(x, y, e, s);
-        if (!isPathKind(c + 1, r)) g2.fillRect(x + s - e, y, e, s);
+        for (int[] f : fountains) {
+            g2.drawImage(waterTile,
+                    offX + (f[0] * TILE - camX) * SCALE,
+                    offY + (f[1] * TILE - camY) * SCALE, s, s, null);
+        }
     }
 
-    private void paintFountain(Graphics2D g2, int offX, int offY) {
-        int s = TILE * SCALE;
-        g2.setColor(VillagePalette.RIM);
-        g2.fillRect(offX + (fountainX * TILE - camX) * SCALE,
-                offY + (fountainY * TILE - camY) * SCALE, s * 2, s * 2);
-        g2.setColor(VillagePalette.WATER);
-        g2.fillRect(offX + (fountainX * TILE - camX) * SCALE + 3,
-                offY + (fountainY * TILE - camY) * SCALE + 3, s * 2 - 6, s * 2 - 6);
-    }
-
-    private Color roofColor(Building b, boolean dark) {
-        return switch (b.kind) {
-            case INN -> dark ? VillagePalette.ROOF_INN_DARK : VillagePalette.ROOF_INN;
-            case WEAPON -> dark ? VillagePalette.ROOF_WEAPON_DARK : VillagePalette.ROOF_WEAPON;
-            case ARMOR -> dark ? VillagePalette.ROOF_ARMOR_DARK : VillagePalette.ROOF_ARMOR;
-            case ITEM -> dark ? VillagePalette.ROOF_ITEM_DARK : VillagePalette.ROOF_ITEM;
-            case MAGIC -> dark ? VillagePalette.ROOF_MAGIC_DARK : VillagePalette.ROOF_MAGIC;
-            case HOUSE, BIG -> dark ? VillagePalette.ROOF_HOUSE_DARK : VillagePalette.ROOF_HOUSE;
-        };
+    /** Open door while the player stands on the doorway (door cell or entrance). */
+    private boolean playerAtDoorway(Building b) {
+        return (col == b.doorX && row == b.doorY)
+                || (col == b.enterX && row == b.enterY);
     }
 
     private void drawBuilding(Graphics2D g2, int offX, int offY, Building b) {
+        ensureSprites();
         int s = TILE * SCALE;
         int x = offX + (b.tx * TILE - camX) * SCALE;
         int y = offY + (b.ty * TILE - camY) * SCALE;
         int w = b.tw * s;
-        int h = b.th * s;
-        int roofRows = (b.kind == Kind.INN) ? 2 : 1;
+        boolean doorway = playerAtDoorway(b);
 
-        // Walls.
-        g2.setColor(VillagePalette.WALL);
-        g2.fillRect(x, y + roofRows * s, w, h - roofRows * s);
-        // Soft darker line under the roof.
-        g2.setColor(VillagePalette.WALL_SHADE);
-        g2.fillRect(x, y + roofRows * s, w, 2);
-        // Roof.
-        g2.setColor(roofColor(b, false));
-        g2.fillRect(x, y, w, roofRows * s - 2);
-        g2.setColor(roofColor(b, true));
-        g2.fillRect(x, y + roofRows * s - 2, w, 2);
-        // 1px dark outline.
-        g2.setColor(VillagePalette.OUTLINE_DARK);
-        g2.drawRect(x, y, w - 1, h - 1);
-        if (b.chimney) {
-            g2.setColor(VillagePalette.WALL_SHADE);
-            g2.fillRect(x + w - 8, y + 2, 5, s - 2);
+        // Per-cell sprite facade: single roof row, upper window/plain rows,
+        // ground base row (lower-level variants) with the door cell.
+        for (int ly = 0; ly < b.th; ly++) {
+            for (int lx = 0; lx < b.tw; lx++) {
+                int cx = offX + ((b.tx + lx) * TILE - camX) * SCALE;
+                int cy = offY + ((b.ty + ly) * TILE - camY) * SCALE;
+                BufferedImage img;
+                if (ly == 0) {
+                    img = houseRoof;
+                } else if (ly < b.th - 1) {
+                    int upperRow = ly - 1; // 0-based among upper rows
+                    img = upperHasWindow(b, upperRow, lx) ? houseWallWindow : houseWallPlain;
+                } else {
+                    if (b.tx + lx == b.doorX) {
+                        img = doorway ? houseDoorOpen : houseDoorClosed;
+                    } else {
+                        img = baseHasWindow(b, lx) ? houseBaseWindow : houseBasePlain;
+                    }
+                }
+                g2.drawImage(img, cx, cy, s, s, null);
+            }
         }
-        // Door bottom-center + frame.
-        int dw = 8 * SCALE / 2;
-        int dx = offX + (b.doorX * TILE - camX) * SCALE + (s - dw) / 2;
-        int dy = offY + (b.doorY * TILE - camY) * SCALE + (s - dw) / 2;
-        g2.setColor(VillagePalette.DOOR_FRAME);
-        g2.fillRect(dx - 1, dy - 1, dw + 2, dw + 2);
-        g2.setColor(VillagePalette.DOOR);
-        g2.fillRect(dx, dy, dw, dw);
-        if (b.shop) { // small sign above shop doors
-            g2.setColor(VillagePalette.WINDOW_LIT);
-            g2.fillRect(dx, dy - 6, dw, 4);
-            g2.setColor(VillagePalette.OUTLINE_DARK);
-            g2.drawRect(dx, dy - 6, dw - 1, 3);
-        }
-        // Windows on the middle wall row only (never roof or door).
-        drawWindows(g2, offX, offY, b);
         // Name label.
         g2.setColor(VillagePalette.WALL);
         g2.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 10));
         int labelW = g2.getFontMetrics().stringWidth(b.name);
         g2.drawString(b.name, x + (w - labelW) / 2, y - 4);
-    }
-
-    private void drawWindows(Graphics2D g2, int offX, int offY, Building b) {
-        int s = TILE * SCALE;
-        int wallRow = b.ty + 1; // middle wall row for h=3; upper wall row for the inn
-        if (b.kind == Kind.INN) wallRow = b.ty + 2;
-        Color glass = b.shop ? VillagePalette.WINDOW_LIT : VillagePalette.WINDOW_DAY;
-        int[] cols;
-        if (b.tw == 3) {
-            cols = new int[]{b.tx, b.tx + 2}; // left and right wall tiles
-        } else {
-            cols = new int[]{b.tx, b.tx + b.tw / 2, b.tx + b.tw - 1}; // mirrored + center
-        }
-        for (int c : cols) {
-            int x = offX + (c * TILE - camX) * SCALE + s / 4;
-            int y = offY + (wallRow * TILE - camY) * SCALE + s / 4;
-            int w = s / 2;
-            int h = s / 2 - 2;
-            g2.setColor(VillagePalette.WINDOW_FRAME);
-            g2.fillRect(x - 1, y - 1, w + 2, h + 2);
-            g2.setColor(glass);
-            g2.fillRect(x, y, w, h);
-            g2.setColor(VillagePalette.WINDOW_FRAME); // 1px cross bar
-            g2.fillRect(x, y + h / 2, w, 1);
-        }
-    }
-
-    private void drawTree(Graphics2D g2, int offX, int offY, int c, int r) {
-        // Legacy full-tile draw (kept for fallback path); layered code uses trunk/canopy below.
-        drawTreeTrunk(g2, offX, offY, c, r);
     }
 
     /** Layer 2 trunk: solid base. Bottom half of the 32x32 tree art. */
@@ -1694,23 +1727,14 @@ public final class VillageScene {
         int s = TILE * SCALE;
         int x = offX + (c * TILE - camX) * SCALE;
         int y = offY + (r * TILE - camY) * SCALE;
-        if (treeTile != null) {
-            // Clip to bottom half so only the trunk/base shows in the Layer 2 pass.
-            java.awt.Shape old = g2.getClip();
-            try {
-                g2.setClip(x, y + s / 2, s, s - s / 2);
-                g2.drawImage(treeTile, x, y, s, s, null);
-            } finally {
-                g2.setClip(old);
-            }
-            return;
+        // Clip to bottom half so only the trunk/base shows in the Layer 2 pass.
+        java.awt.Shape old = g2.getClip();
+        try {
+            g2.setClip(x, y + s / 2, s, s - s / 2);
+            g2.drawImage(treeTile, x, y, s, s, null);
+        } finally {
+            g2.setClip(old);
         }
-        g2.setColor(VillagePalette.TRUNK);
-        g2.fillRect(x + s / 2 - 2, y + s / 2, 4, s / 2);
-        g2.setColor(VillagePalette.CANOPY_DARK);
-        g2.fillOval(x - 2, y - s / 2, s + 4, s);
-        g2.setColor(VillagePalette.CANOPY_LIGHT);
-        g2.fillOval(x + 1, y - s / 2 + 2, s - 4, s - 5);
     }
 
     /** Layer 3 canopy: PASSABLE visual overlay, drawn after the player. Top half of art. */
@@ -1719,26 +1743,13 @@ public final class VillageScene {
         int s = TILE * SCALE;
         int x = offX + (c * TILE - camX) * SCALE;
         int y = offY + (r * TILE - camY) * SCALE;
-        if (treeTile != null) {
-            java.awt.Shape old = g2.getClip();
-            try {
-                g2.setClip(x, y, s, s / 2);
-                g2.drawImage(treeTile, x, y, s, s, null);
-            } finally {
-                g2.setClip(old);
-            }
+        java.awt.Shape old = g2.getClip();
+        try {
+            g2.setClip(x, y, s, s / 2);
+            g2.drawImage(treeTile, x, y, s, s, null);
+        } finally {
+            g2.setClip(old);
         }
-        // Fallback procedural canopy is already part of the trunk draw; nothing extra needed.
-    }
-
-    private void drawFence(Graphics2D g2, int offX, int offY, int c, int r) {
-        int s = TILE * SCALE;
-        int x = offX + (c * TILE - camX) * SCALE;
-        int y = offY + (r * TILE - camY) * SCALE;
-        g2.setColor(VillagePalette.FENCE);
-        g2.fillRect(x + 2, y + s / 2 - 1, s - 4, 3);
-        g2.fillRect(x + 3, y + 4, 3, s - 8);
-        g2.fillRect(x + s - 6, y + 4, 3, s - 8);
     }
 
     /** Top-wall face: front of the FF1 horizontal wall, solid — blocks movement. */
@@ -1747,30 +1758,27 @@ public final class VillageScene {
         int s = TILE * SCALE;
         int x = offX + (c * TILE - camX) * SCALE;
         int y = offY + (r * TILE - camY) * SCALE;
-        if (wallBrickTile != null) {
-            g2.drawImage(wallBrickTile, x, y, s, s, null);
-        } else {
-            g2.setColor(VillagePalette.WALL_SHADE);
-            g2.fillRect(x, y, s, s);
-            g2.setColor(VillagePalette.OUTLINE_DARK);
-            g2.drawRect(x, y, s - 1, s - 1);
+        if (isSewer(c, r)) {
+            g2.drawImage(sewerTile, x, y, s, s, null);
+            return;
         }
+        g2.drawImage(wallBrickTile, x, y, s, s, null);
     }
 
-    /** Wall cap: drawn from art, solid — blocks movement. */
+    /** Wall cap: drawn from art, solid — blocks movement. Caps run continuous (ttttt). */
     private void drawWallTop(Graphics2D g2, int offX, int offY, int c, int r) {
         ensureSprites();
         int s = TILE * SCALE;
         int x = offX + (c * TILE - camX) * SCALE;
         int y = offY + (r * TILE - camY) * SCALE;
-        if (wallTopTile != null) {
-            g2.drawImage(wallTopTile, x, y, s, s, null);
-        } else {
-            g2.setColor(VillagePalette.RIM);
-            g2.fillRect(x, y, s, s);
-            g2.setColor(VillagePalette.OUTLINE_DARK);
-            g2.drawRect(x, y, s - 1, s - 1);
+        g2.drawImage(wallTopTile, x, y, s, s, null);
+    }
+
+    private boolean isSewer(int c, int r) {
+        for (int[] sw : sewers) {
+            if (sw[0] == c && sw[1] == r) return true;
         }
+        return false;
     }
 
     /**
@@ -1794,12 +1802,7 @@ public final class VillageScene {
                 int y = offY + (r * TILE - camY) * SCALE;
                 // Only the lower face overlaps a south-adjacent player; clip to it.
                 g2.setClip(x, y + s - strip, s, strip);
-                if (wallBrickTile != null) {
-                    g2.drawImage(wallBrickTile, x, y, s, s, null);
-                } else {
-                    g2.setColor(VillagePalette.WALL_SHADE);
-                    g2.fillRect(x, y + s - strip, s, strip);
-                }
+                g2.drawImage(wallBrickTile, x, y, s, s, null);
             }
         } finally {
             g2.setClip(oldClip);
@@ -1827,7 +1830,7 @@ public final class VillageScene {
         try {
             for (Building b : buildings) {
                 if (b.tx + b.tw < c0 - 1 || b.tx > c1 + 1 || b.ty > r1 + 1 || b.ty + b.th < r0 - 1) continue;
-                int roofRows = (b.kind == Kind.INN) ? 2 : 1;
+                int roofRows = 1; // single straight roof line for every building
                 int x = offX + (b.tx * TILE - camX) * SCALE;
                 int y = offY + (b.ty * TILE - camY) * SCALE;
                 g2.setClip(x, y, b.tw * s, roofRows * s);
@@ -1968,6 +1971,12 @@ public final class VillageScene {
             g2.setColor(GamePalette.ROYAL_BLUE);
             g2.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
             g2.drawString(message, 24, viewH - 24);
+            if (dialogue.isOpen()) {
+                String hint = dialogue.hint();
+                g2.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 11));
+                int hw = g2.getFontMetrics().stringWidth(hint);
+                g2.drawString(hint, viewW - 24 - hw, viewH - 24);
+            }
         }
     }
 
@@ -1983,18 +1992,20 @@ public final class VillageScene {
                     case SQUARE -> 's';
                     case TREE -> 'T';
                     case GATE -> 'G';
+                    case WATER -> '~';
                 };
             }
         }
         for (Building b : buildings) {
-            char mark = switch (b.kind) {
-                case INN -> 'I';
-                case HOUSE -> 'H';
-                case ITEM -> 'i';
-                case WEAPON -> 'W';
-                case ARMOR -> 'A';
-                case MAGIC -> 'M';
-                case BIG -> 'B';
+            char mark = switch (b.name) {
+                case "INN" -> 'I';
+                case "TAVERN" -> 'V';
+                case "MENTOR" -> 'E';
+                case "BLACKSMITH" -> 'W';
+                case "MARKET" -> 'i';
+                case "WIZARD" -> 'M';
+                case "SANCTUARY" -> 'U';
+                default -> 'H';
             };
             for (int y = b.ty; y < b.ty + b.th; y++) {
                 for (int x = b.tx; x < b.tx + b.tw; x++) {
@@ -2004,11 +2015,12 @@ public final class VillageScene {
             pic[b.doorY][b.doorX] = 'D';
             pic[b.enterY][b.enterX] = 'd';
         }
-        for (int y = fountainY; y < fountainY + 2; y++) {
-            for (int x = fountainX; x < fountainX + 2; x++) pic[y][x] = 'F';
-        }
+        for (int[] f : fountains) pic[f[1]][f[0]] = 'F';
         for (int[] w : wallBodies) pic[w[1]][w[0]] = 'w';
         for (int[] w : wallTops) pic[w[1]][w[0]] = 'W';
+        for (int[] sw : sewers) pic[sw[1]][sw[0]] = 'S';
+        for (int[] b : bridges) pic[b[1]][b[0]] = '=';
+        for (int[] w : wells) pic[w[1]][w[0]] = 'O';
         for (int[] w : invisibleBounds) {
             if (pic[w[1]][w[0]] == '.' || pic[w[1]][w[0]] == 'p'
                     || pic[w[1]][w[0]] == 'r' || pic[w[1]][w[0]] == 's') {
@@ -2021,11 +2033,13 @@ public final class VillageScene {
         for (int y = 0; y < MAP_H; y++) {
             System.out.println(String.valueOf(pic[y]));
         }
-        System.out.println("Legend: .=grass r=road p=path s=plaza G=gate T=tree F=fountain W=wallTop w=wallBrick x=invisibleBound");
-        System.out.println("I=inn H=house i=item W=weapon A=armor M=magic B=bighouse D=door d=entrance N=npc P=spawn");
+        System.out.println("Legend: .=grass p=path G=gate ~=water T=tree F=fountain W=wallTop w=wallBrick S=sewer ==bridge x=invisibleBound");
+        System.out.println("I=inn V=tavern E=mentor W=blacksmith i=market H=house M=wizard U=sanctuary D=door d=entrance N=npc P=spawn");
         int treeCount = trees.size();
         System.out.println("Trees: " + treeCount + " WallTops: " + wallTops.size()
                 + " WallBricks: " + wallBodies.size() + " Bounds: " + invisibleBounds.size()
-                + " Buildings: " + buildings.size() + " NPCs: " + npcs.size());
+                + " Buildings: " + buildings.size() + " NPCs: " + npcs.size()
+                + " Bridges: " + bridges.size() + " Fountains: " + fountains.size()
+                + " Sewers: " + sewers.size());
     }
 }
