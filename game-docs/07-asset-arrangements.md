@@ -143,11 +143,13 @@ sampling in build tooling — never hand-transcribed).
 - 8 buildings, all 3x4, door centered on facade bottom row (except legacy 4-wide
   INN rule, dormant), entrance cell directly south. `E` works only on entrance facing up.
 - Doors start shut (solid). Entry is 2-tap: pushing into a shut door swings it
-  open (tap 1, `The door creaks open.`), pushing again steps through (tap 2);
-  turning to face a shut door counts as tap 1, so entry is always 2 taps and
-  never turn + bump + step. It shuts behind you when you step off, and bumping
-  another door shuts the first (at most one open). The open sprite shows only
-  while standing on the door cell itself. HOUSE stays locked — bumping it shows
+  open (tap 1, `The door creaks open.`), then release and push again to step
+  through (tap 2) — holding the opening press never walks you in. Turning to
+  face a shut door counts as tap 1, so entry is always 2 taps and never
+  turn + bump + step. It shuts behind you when you step off, and bumping
+  another door shuts the first (at most one open). The open sprite shows from
+  the opening click (with the creak message) until the door shuts behind you.
+  HOUSE stays locked — bumping it shows
   its blurb and never opens. `E` on the entrance facing up still reads the
   building blurb.
 - Facades (sprite): single straight roof row (`house_roof.png`); max 2 floors — upper rows mix

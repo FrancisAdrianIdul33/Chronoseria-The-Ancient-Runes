@@ -223,8 +223,16 @@ public final class VillageScene {
     private int walkFrame;
 
     private String message = "";
-    /** The one open doorway for 2-tap entry, or null when all doors are shut. */
+
+    // ---- Doors: 2-tap entry (tap 1 opens, tap 2 steps through) ----
+    /** The one open doorway, or null when all doors are shut. */
     private Building openDoor;
+    /**
+     * Click latch: the key press that swung the door open must be released
+     * before anyone steps through — holding never auto-enters. Cleared once
+     * no movement key is held.
+     */
+    private boolean doorLatch;
     private int msgTimer;
     private Npc talkingNpc; // villager currently in dialogue, or null
     private final Dialogue dialogue = new Dialogue(); // panel module
@@ -268,10 +276,8 @@ public final class VillageScene {
         row = SPAWN_R;
         facing = Dir.UP;
         stepping = false;
-        if (openDoor != null) {
-            solid[openDoor.doorX][openDoor.doorY] = true;
-            openDoor = null;
-        }
+        if (openDoor != null) shutDoor(openDoor); // spawn is never a door cell
+        doorLatch = false;
         snapRender();
         animT = 0;
         walkFrame = 0;
@@ -1160,6 +1166,10 @@ public final class VillageScene {
         }
         if (want != null) preferred = want;
 
+        // The opening press never walks through: latch clears once every
+        // movement key is released, so entry always needs a fresh click.
+        if (doorLatch && !up && !down && !left && !right) doorLatch = false;
+
         // Face-to-face freeze: while the dialogue panel is open both sides stay
         // idle (NPC already skips its routine in TALKING); E still advances it.
         if (dialogue.isOpen()) want = null;
@@ -1190,9 +1200,9 @@ public final class VillageScene {
                 row = toR;
                 snapRender();
                 stepping = false;
+                // Stepping off shuts it behind you.
                 if (openDoor != null && (col != openDoor.doorX || row != openDoor.doorY)) {
-                    solid[openDoor.doorX][openDoor.doorY] = true; // shuts behind you
-                    openDoor = null;
+                    shutDoor(openDoor);
                 }
             }
         }
@@ -1228,9 +1238,9 @@ public final class VillageScene {
         int tc = col + d.dx;
         int tr = row + d.dy;
         if (!isInsideMap(tc, tr)) return;
-        // Tap 1: pushing into a shut door swings it open (and shuts any other);
-        // tap 2 steps through. Locked doors never open.
-        if (bumpDoor(tc, tr)) return;
+        if (bumpDoor(tc, tr)) return; // tap 1 opens; tap 2 steps through
+        // The opening press never walks through: release + click again to enter.
+        if (doorLatch && openDoor != null && tc == openDoor.doorX && tr == openDoor.doorY) return;
         if (solid[tc][tr]) return; // blocked
         stepping = true;
         fromC = col; fromR = row;
@@ -2012,11 +2022,6 @@ public final class VillageScene {
         }
     }
 
-    /** Open sprite only while the player stands on the door cell itself. */
-    private boolean playerAtDoorway(Building b) {
-        return col == b.doorX && row == b.doorY;
-    }
-
     /** Which building owns the door at (c, r), or null. */
     private Building buildingDoorAt(int c, int r) {
         for (Building b : buildings) {
@@ -2037,13 +2042,25 @@ public final class VillageScene {
             msgTimer = MSG_TICKS;
             return true;
         }
-        if (openDoor != null) solid[openDoor.doorX][openDoor.doorY] = true;
-        openDoor = shut;
+        openDoorAt(shut, tc, tr);
+        return true;
+    }
+
+    /** Swing a door open: any other shuts, solidity clears, latch arms. */
+    private void openDoorAt(Building b, int tc, int tr) {
+        if (openDoor != null) shutDoor(openDoor);
+        openDoor = b;
         solid[tc][tr] = false;
+        doorLatch = true; // this press only opens — release + click again to enter
         message = "The door creaks open.";
         msgTimer = MSG_TICKS;
         AudioManager.playEffect("door");
-        return true;
+    }
+
+    /** Shut a door: collision back on, open reference cleared if it was open. */
+    private void shutDoor(Building b) {
+        solid[b.doorX][b.doorY] = true;
+        if (openDoor == b) openDoor = null;
     }
 
     private void drawBuilding(Graphics2D g2, int offX, int offY, Building b) {
@@ -2052,7 +2069,9 @@ public final class VillageScene {
         int x = offX + (b.tx * TILE - camX) * SCALE;
         int y = offY + (b.ty * TILE - camY) * SCALE;
         int w = b.tw * s;
-        boolean doorway = playerAtDoorway(b);
+        // Open sprite follows the door state: visible from the opening click
+        // (tap 1, player still outside) until it shuts behind you.
+        boolean doorway = openDoor == b;
 
         // Per-cell sprite facade: single roof row, upper window/plain rows,
         // ground base row (lower-level variants) with the door cell.
