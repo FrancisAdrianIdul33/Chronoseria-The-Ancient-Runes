@@ -12,11 +12,11 @@ and dialogue below. Zones keep every part of the village covered at once.
 
 | Villager | Spawn | Home zone haunts | Dialogue stages 0 → 2 |
 |---|---|---|---|
-| MIRA | `(13,18)` mid-south | `(13,18)`, `(18,18)`, `(13,22)`, `(19,22)` | “Good day! The village is peaceful today.” / “The inn is south, past the corridor.” / “It is nice to see new faces around here.” |
-| Bram | `(22,7)` north-east | `(22,7)`, `(18,7)`, `(28,7)`, `(22,9)` | “Smithy's west, market's east.” / “Shops line the north ridge. Mind the river.” / “Odd says stay on the path. He's right.” |
-| ODD | `(16,13)` center | `(16,13)`, `(16,14)`, `(12,14)`, `(21,14)` | “Stay on the path.” / “Bridges are one wide. Single file.” / “Walls are solid. Don't bother pushing.” |
-| Pip | `(13,28)` gate | `(13,28)`, `(18,28)`, `(13,29)`, `(18,29)` | “South gate goes everywhere.” / “I saw the fountain glittering yesterday.” / “Inn's north, past the corridor.” |
-| Sol | `(5,7)` north-west | `(5,7)`, `(3,6)`, `(10,7)`, `(5,9)` | “Tavern's east, down the lane.” / “Mind the river north.” / “Quiet today. Good.” |
+| Amara | `(13,18)` mid-south | `(13,18)`, `(18,18)`, `(13,22)`, `(19,22)` | “Good day! The village is peaceful today.” / “The inn is south, past the corridor.” / “It is nice to see new faces around here.” |
+| Darius | `(22,7)` north-east | `(22,7)`, `(18,7)`, `(28,7)`, `(22,9)` | “Smithy's west, market's east.” / “Shops line the north ridge. Mind the river.” / “Kaelira says stay on the path. She's right.” |
+| Kaelira | `(16,13)` center | `(16,13)`, `(16,14)`, `(12,14)`, `(21,14)` | “Stay on the path.” / “Bridges are one wide. Single file.” / “Walls are solid. Don't bother pushing.” |
+| Theron | `(13,28)` gate | `(13,28)`, `(18,28)`, `(13,29)`, `(18,29)` | “South gate goes everywhere.” / “I saw the fountain glittering yesterday.” / “Inn's north, past the corridor.” |
+| Elowen | `(5,7)` north-west | `(5,7)`, `(3,6)`, `(10,7)`, `(5,9)` | “Tavern's east, down the lane.” / “Mind the river north.” / “Quiet today. Good.” |
 
 Roster code: `VillageScene.java` `buildMap()` NPC block. Spawn cells are `solid` at build and
 covered by the static asserts (inside map, on walkable grass — never paths, doors, walls, fountain).
@@ -108,7 +108,8 @@ walls — else the cell behind the approach (`BACK_UP`). Chased dodges chain on 
   (`VillageScene.java:1507`), same as you.
 - Talk: `interact()` (`VillageScene.java:833`) — facing cell match freezes them
   (`stepping` cut, render re-synced), stage line shows, stage advances, expiry
-  returns them to `IDLE`.
+  returns them to `IDLE`. While the panel is open both sides stay idle:
+  movement input is ignored (facing kept), talkers re-face you every tick.
 - Static asserts still cover spawn cells only; runtime guards
   (`npcRestFree()`, `npcStepBlocked()`, door/entrance bans) cover walkers.
 
@@ -126,3 +127,85 @@ frontage holds, wall bands continuous (115 caps / 61 bricks), 4 bridges walkable
 fountain island solid with paths around, gate walkable, NPC spawns on grass with
 no dupes. Mind-model behavior (yielding, talk, break-away) is map-independent —
 see previous runs for the tick-level proofs.
+
+## 10. Name pools (randomizer deal source)
+
+50 male + 50 female names for Chronoseria NPCs. Each run deals 5 villagers
+with no repeated name and no repeated starting letter. Zones, personalities,
+and dialogue stay fixed — only the name (and its dialogue prefix) is dealt.
+
+### 50 male names
+
+| No. | Name     | No. | Name     |
+| --- | -------- | --- | -------- |
+| 1   | Alaric   | 26  | Kaelen   |
+| 2   | Avaron   | 27  | Lucian   |
+| 3   | Bastian  | 28  | Maelor   |
+| 4   | Cassian  | 29  | Malakai  |
+| 5   | Darius   | 30  | Nerion   |
+| 6   | Darion   | 31  | Oberon   |
+| 7   | Evander  | 32  | Orion    |
+| 8   | Eryndor  | 33  | Osiris   |
+| 9   | Fabian   | 34  | Peregrin |
+| 10  | Fenrir   | 35  | Quillon  |
+| 11  | Hadrian  | 36  | Raiden   |
+| 12  | Isandro  | 37  | Raphael  |
+| 13  | Jareth   | 38  | Remiel   |
+| 14  | Jorvik   | 39  | Samorin  |
+| 15  | Kaedric  | 40  | Severin  |
+| 16  | Kaldren  | 41  | Solarin  |
+| 17  | Leander  | 42  | Sylvanus |
+| 18  | Leonidas | 43  | Tavian   |
+| 19  | Lorcan   | 44  | Theron   |
+| 20  | Lucero   | 45  | Tiberius |
+| 21  | Magnus   | 46  | Valerian |
+| 22  | Meridian | 47  | Varian   |
+| 23  | Mordain  | 48  | Xavian   |
+| 24  | Nero     | 49  | Zephyrus |
+| 25  | Octavian | 50  | Zorion   |
+
+### 50 female names
+
+| No. | Name     | No. | Name      |
+| --- | -------- | --- | --------- |
+| 1   | Amara    | 26  | Kaelira   |
+| 2   | Aeloria  | 27  | Kalista   |
+| 3   | Althea   | 28  | Lavinia   |
+| 4   | Anaria   | 29  | Liora     |
+| 5   | Aradia   | 30  | Lunara    |
+| 6   | Ariella  | 31  | Lyanna    |
+| 7   | Aurora   | 32  | Meliora   |
+| 8   | Avaline  | 33  | Mirella   |
+| 9   | Bellara  | 34  | Nerissa   |
+| 10  | Calista  | 35  | Novara    |
+| 11  | Camilla  | 36  | Nymera    |
+| 12  | Celestia | 37  | Oriana    |
+| 13  | Cyrella  | 38  | Paloma    |
+| 14  | Damaris  | 39  | Ravena    |
+| 15  | Delphina | 40  | Rosalia   |
+| 16  | Elara    | 41  | Samara    |
+| 17  | Elowen   | 42  | Seraphina |
+| 18  | Elysia   | 43  | Solara    |
+| 19  | Emelina  | 44  | Talitha   |
+| 20  | Evelina  | 45  | Talia     |
+| 21  | Fiora    | 46  | Valeria   |
+| 22  | Galatea  | 47  | Vespera   |
+| 23  | Illyria  | 48  | Xanthea   |
+| 24  | Isadora  | 49  | Ysolde    |
+| 25  | Jovana   | 50  | Zenara    |
+
+### Naming styles by era
+
+Ancient and classical — Male: Darius, Cassian, Hadrian, Osiris, Leonidas.
+Female: Althea, Isadora, Camilla, Galatea, Valeria.
+
+Medieval and fantasy — Male: Alaric, Evander, Maelor, Oberon, Leander.
+Female: Elowen, Aradia, Lyanna, Lavinia, Ysolde.
+
+Futuristic and sci-fi — Male: Avaron, Eryndor, Kaldren, Solarin, Zorion.
+Female: Aeloria, Kaelira, Nymera, Novara, Zenara.
+
+Syllable note: names are intended at three syllables, but pronunciation
+varies by accent — a few entries may read as two, four, or more syllables
+(Alaric, Bastian, Nero, Amara, Seraphina). For a strict three-syllable
+database, check each name and replace exceptions.

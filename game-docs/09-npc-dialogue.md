@@ -10,11 +10,11 @@ advance, and close. Roster lines are quoted verbatim. Mind FSM lives in
 
 | Villager | 1 | 2 | 3 |
 |---|---|---|---|
-| MIRA | “Good day! The village is peaceful today.” | “The inn is north up the road if you need a rest.” | “It is nice to see new faces around here.” |
-| Bram | “Fountain's east. Shops are warm.” | “Shops line the north ridge. Mind the walls.” | “Odd says stay on the road. He's right.” |
-| ODD | “Stay on the road.” | “The gate is one tile wide. Single file.” | “Walls are solid. Don't bother pushing.” |
-| Pip | “South road goes everywhere.” | “I saw the fountain glittering yesterday.” | “Plaza's west. Can't miss it.” |
-| Sol | “Knock twice at the Inn.” | “Blue roof, north side. That's the one.” | “Quiet today. Good.” |
+| Amara | “Good day! The village is peaceful today.” | “The inn is north up the road if you need a rest.” | “It is nice to see new faces around here.” |
+| Darius | “Fountain's east. Shops are warm.” | “Shops line the north ridge. Mind the walls.” | “Kaelira says stay on the road. She's right.” |
+| Kaelira | “Stay on the road.” | “The gate is one tile wide. Single file.” | “Walls are solid. Don't bother pushing.” |
+| Theron | “South road goes everywhere.” | “I saw the fountain glittering yesterday.” | “Plaza's west. Can't miss it.” |
+| Elowen | “Knock twice at the Inn.” | “Blue roof, north side. That's the one.” | “Quiet today. Good.” |
 
 Lines live in each `Npc.lines` (`VillageScene.java:417-441`); `Npc.stage`
 cycles forever, so repeat chats rotate through all three.
@@ -29,6 +29,8 @@ Face villager + E → open (line = current stage) → E → next line → E → 
 - One conversation shows every line from the current stage, then shuts.
 - `E` with an open panel always advances/closes first — it never starts a
   second chat or reads a door behind the box.
+- Movement is frozen while the panel is open: you and the villager stand
+  facing each other until it closes, then both resume.
 - Prompt hint bottom-right of the box: `E: next 1/3` … `E: done`.
 - Buildings use the same box (their blurb) but never open the panel: no hint,
   300-tick expiry as before.

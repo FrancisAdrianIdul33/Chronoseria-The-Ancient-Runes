@@ -142,6 +142,14 @@ sampling in build tooling — never hand-transcribed).
 
 - 8 buildings, all 3x4, door centered on facade bottom row (except legacy 4-wide
   INN rule, dormant), entrance cell directly south. `E` works only on entrance facing up.
+- Doors start shut (solid). Entry is 2-tap: pushing into a shut door swings it
+  open (tap 1, `The door creaks open.`), pushing again steps through (tap 2);
+  turning to face a shut door counts as tap 1, so entry is always 2 taps and
+  never turn + bump + step. It shuts behind you when you step off, and bumping
+  another door shuts the first (at most one open). The open sprite shows only
+  while standing on the door cell itself. HOUSE stays locked — bumping it shows
+  its blurb and never opens. `E` on the entrance facing up still reads the
+  building blurb.
 - Facades (sprite): single straight roof row (`house_roof.png`); max 2 floors — upper rows mix
   `house_wall_window.png` / `house_wall_plain.png` (1–4 windows per building, centered);
   ground row mixes `house_wall_base_window.png` / `house_wall_base_plain.png` (lower-level
@@ -183,10 +191,10 @@ sampling in build tooling — never hand-transcribed).
   never side walls; the sewer is solid with a `wallTop` cap directly above it
   (asserted at build time).
 - Paths never touch buildings except via entrance cells.
-- NPCs: Sol `(5,7)`, Bram `(22,7)`, ODD `(16,13)`, MIRA `(13,18)`, Pip `(13,28)` —
+- NPCs: Elowen `(5,7)`, Darius `(22,7)`, Kaelira `(16,13)`, Amara `(13,18)`, Theron `(13,28)` —
   solid, on walkable grass, never on doors/paths/walls/fountain.
-- Villager minds (all five, zoned): Sol north-west block, Bram north-east block, ODD
-  center loops, MIRA mid-south + fountain court, Pip corridor-south + gate — each wanders
+- Villager minds (all five, zoned): Elowen north-west block, Darius north-east block, Kaelira
+  center loops, Amara mid-south + fountain court, Theron corridor-south + gate — each wanders
   only its home haunts so every part stays covered. `IDLE` 2–5s → `WANDER` BFS → rest
   2–6s. `TALKING` freezes facing the player with 3 cycling lines. `MOVE_ASIDE`
   steps to a free side cell (never doors/player/walls) only when blocking an
@@ -227,7 +235,7 @@ sampling in build tooling — never hand-transcribed).
 
 ## 8. Validation (never remove)
 
-`VillageScene` asserts at build time: doors reachable by flood fill from spawn; street frontage (no path on door cells, entrances walkable); door-on-facade (centered; legacy 4-wide INN exception dormant); inside map; no overlap; `wallBrick` only on top `row 4 x1..30`, bottom-band `row 24` outer spans, side bottoms `(0,24)/(31,24)`, and front `row 31` stem span minus gate (sewer cells replace bricks there and are tracked separately); caps continuous along the rectangle polygon; bottom/stem openings clear; every structure inside the walls and off walls; gate walkable; sewer rule per-unit (2 placed: north `(15,4)` + south `(23,24)`, each solid with cap above on a valid brick row); fountain plaza `3x3 PATH` cols `15-17` rows `20-22`, base `(16,21)` solid + upper `(16,20)` walkable; forest placement (159 schematic trees on `TREE` ground, solid, off walls/buildings/doors/entrances/NPCs/spawn, entrance buffers + plaza margin + building-front rows clear, count exact); forest connectivity (flood fill from spawn reaches every `PATH`/`GATE` cell modulo the fountain island, and every entrance); exactly 8 doors.
+`VillageScene` asserts at build time: doors reachable by flood fill from spawn; street frontage (no path on door cells, entrances walkable); door-on-facade (centered; legacy 4-wide INN exception dormant); inside map; no overlap; `wallBrick` only on top `row 4 x1..30`, bottom-band `row 24` outer spans, side bottoms `(0,24)/(31,24)`, and front `row 31` stem span minus gate (sewer cells replace bricks there and are tracked separately); caps continuous along the rectangle polygon; bottom/stem openings clear; every structure inside the walls and off walls; gate walkable; sewer rule per-unit (2 placed: north `(15,4)` + south `(23,24)`, each solid with cap above on a valid brick row); fountain plaza `3x3 PATH` cols `15-17` rows `20-22`, base `(16,21)` solid + upper `(16,20)` walkable; forest placement (159 schematic trees on `TREE` ground, solid, off walls/buildings/doors/entrances/NPCs/spawn, entrance buffers + plaza margin + building-front rows clear, count exact); forest connectivity (flood fill from spawn reaches every `PATH`/`GATE` cell modulo the fountain island, and every entrance); doors start shut+solid with walkable entrances and none open (`assertDoorsShut`, stamped after the reachability asserts); exactly 8 doors.
 
 ## 9. Adding a new block
 

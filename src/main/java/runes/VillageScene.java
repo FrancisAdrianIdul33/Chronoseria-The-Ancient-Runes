@@ -119,11 +119,12 @@ public final class VillageScene {
         final String blurb;
         final boolean shop; // lit windows + sign (fallback only)
         final boolean chimney;
+        final boolean locked; // bump never opens it (HOUSE)
         int upperA = 2; // window count, first upper row (floor 2)
         int upperB = 2; // window count, second upper row (INN 4-tall only)
         int baseC = 1; // window count on ground/base row (door cell excluded)
         Building(String name, Kind kind, int tx, int ty, int tw, int th, String blurb,
-                 boolean shop, boolean chimney, int doorDX) {
+                 boolean shop, boolean chimney, boolean locked, int doorDX) {
             this.name = name; this.kind = kind;
             this.tx = tx; this.ty = ty; this.tw = tw; this.th = th;
             this.doorX = tx + doorDX;
@@ -133,6 +134,7 @@ public final class VillageScene {
             this.blurb = blurb;
             this.shop = shop;
             this.chimney = chimney;
+            this.locked = locked;
         }
     }
 
@@ -221,6 +223,8 @@ public final class VillageScene {
     private int walkFrame;
 
     private String message = "";
+    /** The one open doorway for 2-tap entry, or null when all doors are shut. */
+    private Building openDoor;
     private int msgTimer;
     private Npc talkingNpc; // villager currently in dialogue, or null
     private final Dialogue dialogue = new Dialogue(); // panel module
@@ -264,6 +268,10 @@ public final class VillageScene {
         row = SPAWN_R;
         facing = Dir.UP;
         stepping = false;
+        if (openDoor != null) {
+            solid[openDoor.doorX][openDoor.doorY] = true;
+            openDoor = null;
+        }
         snapRender();
         animT = 0;
         walkFrame = 0;
@@ -439,9 +447,9 @@ public final class VillageScene {
     }
 
     private void building(String name, Kind kind, int tx, int ty, int tw, int th,
-                          String blurb, boolean shop, boolean chimney, int doorDX,
+                          String blurb, boolean shop, boolean chimney, boolean locked, int doorDX,
                           int upperA, int upperB, int baseC) {
-        Building b = new Building(name, kind, tx, ty, tw, th, blurb, shop, chimney, doorDX);
+        Building b = new Building(name, kind, tx, ty, tw, th, blurb, shop, chimney, locked, doorDX);
         b.upperA = Math.max(1, Math.min(upperA, tw));
         b.upperB = Math.max(1, Math.min(upperB, tw));
         // Base row excludes the door cell, so cap at tw-1.
@@ -551,14 +559,14 @@ public final class VillageScene {
 
         // ---- 5. Buildings: 8 doors, 7 canonical + 1 house, all 3x4 ----
         // Single straight roof row + 2 floors (upper window/plain, ground base + door).
-        building("TAVERN", Kind.HOUSE, 7, 6, 3, 4, "Tavern — rumors and drinks over the counter.", true, false, 1, 3, 2, 2);
-        building("MENTOR", Kind.HOUSE, 12, 6, 3, 4, "Mentor's house — train field skills here.", false, false, 1, 2, 1, 1);
-        building("BLACKSMITH", Kind.WEAPON, 19, 8, 3, 4, "Blacksmith — blades over the door.", true, false, 1, 3, 2, 2);
-        building("MARKET", Kind.ITEM, 25, 8, 3, 4, "Market — potions and supplies.", true, false, 1, 1, 2, 1);
-        building("HOUSE", Kind.HOUSE, 1, 13, 3, 4, "A quiet house. The door is locked.", false, false, 1, 2, 3, 1);
-        building("WIZARD", Kind.MAGIC, 6, 16, 3, 4, "Wizard's domain — it hums.", true, false, 1, 1, 2, 2);
-        building("SANCTUARY", Kind.HOUSE, 26, 16, 3, 4, "Sanctuary — the rite revives the fallen.", false, false, 1, 2, 1, 1);
-        building("INN", Kind.INN, 12, 23, 3, 4, "Inn — rest up for the road ahead.", true, false, 1, 3, 2, 2);
+        building("TAVERN", Kind.HOUSE, 7, 6, 3, 4, "Tavern — rumors and drinks over the counter.", true, false, false, 1, 3, 2, 2);
+        building("MENTOR", Kind.HOUSE, 12, 6, 3, 4, "Mentor's house — train field skills here.", false, false, false, 1, 2, 1, 1);
+        building("BLACKSMITH", Kind.WEAPON, 19, 8, 3, 4, "Blacksmith — blades over the door.", true, false, false, 1, 3, 2, 2);
+        building("MARKET", Kind.ITEM, 25, 8, 3, 4, "Market — potions and supplies.", true, false, false, 1, 1, 2, 1);
+        building("HOUSE", Kind.HOUSE, 1, 13, 3, 4, "A quiet house. The door is locked.", false, false, true, 1, 2, 3, 1);
+        building("WIZARD", Kind.MAGIC, 6, 16, 3, 4, "Wizard's domain — it hums.", true, false, false, 1, 1, 2, 2);
+        building("SANCTUARY", Kind.HOUSE, 26, 16, 3, 4, "Sanctuary — the rite revives the fallen.", false, false, false, 1, 2, 1, 1);
+        building("INN", Kind.INN, 12, 23, 3, 4, "Inn — rest up for the road ahead.", true, false, false, 1, 3, 2, 2);
 
         // ---- 7. Outer-rectangle perimeter walls (structured + dynamic stamp) ----
         // Top band full width, side columns to the bottom band, south stem corridor
@@ -578,31 +586,31 @@ public final class VillageScene {
         // (deferred cells stay walkable grass).
 
         // NPCs rehomed to the new regions, each with a home zone.
-        npcs.add(new Npc("MIRA", 13, 18, VillagePalette.WATER, true,
+        npcs.add(new Npc("Amara", 13, 18, VillagePalette.WATER, true,
                 new int[][]{{13, 18}, {18, 18}, {13, 22}, {19, 22}},
-                "Mira: \"Good day! The village is peaceful today.\"",
-                "Mira: \"The inn is south, past the corridor.\"",
-                "Mira: \"It is nice to see new faces around here.\""));
-        npcs.add(new Npc("Bram", 22, 7, VillagePalette.ROOF_WEAPON, true,
+                "Amara: \"Good day! The village is peaceful today.\"",
+                "Amara: \"The inn is south, past the corridor.\"",
+                "Amara: \"It is nice to see new faces around here.\""));
+        npcs.add(new Npc("Darius", 22, 7, VillagePalette.ROOF_WEAPON, true,
                 new int[][]{{22, 7}, {18, 7}, {28, 7}, {22, 9}},
-                "Bram: \"Smithy's west, market's east.\"",
-                "Bram: \"Shops line the north ridge. Mind the river.\"",
-                "Bram: \"Odd says stay on the path. He's right.\""));
-        npcs.add(new Npc("ODD", 16, 13, VillagePalette.ROOF_MAGIC, true,
+                "Darius: \"Smithy's west, market's east.\"",
+                "Darius: \"Shops line the north ridge. Mind the river.\"",
+                "Darius: \"Kaelira says stay on the path. She's right.\""));
+        npcs.add(new Npc("Kaelira", 16, 13, VillagePalette.ROOF_MAGIC, true,
                 new int[][]{{16, 13}, {16, 14}, {12, 14}, {21, 14}},
-                "Odd: \"Stay on the path.\"",
-                "Odd: \"Bridges are one wide. Single file.\"",
-                "Odd: \"Walls are solid. Don't bother pushing.\""));
-        npcs.add(new Npc("Pip", 13, 28, VillagePalette.ROOF_ITEM, true,
+                "Kaelira: \"Stay on the path.\"",
+                "Kaelira: \"Bridges are one wide. Single file.\"",
+                "Kaelira: \"Walls are solid. Don't bother pushing.\""));
+        npcs.add(new Npc("Theron", 13, 28, VillagePalette.ROOF_ITEM, true,
                 new int[][]{{13, 28}, {18, 28}, {13, 29}, {18, 29}},
-                "Pip: \"South gate goes everywhere.\"",
-                "Pip: \"I saw the fountain glittering yesterday.\"",
-                "Pip: \"Inn's north, past the corridor.\""));
-        npcs.add(new Npc("Sol", 5, 7, VillagePalette.ROOF_HOUSE, true,
+                "Theron: \"South gate goes everywhere.\"",
+                "Theron: \"I saw the fountain glittering yesterday.\"",
+                "Theron: \"Inn's north, past the corridor.\""));
+        npcs.add(new Npc("Elowen", 5, 7, VillagePalette.ROOF_HOUSE, true,
                 new int[][]{{5, 7}, {3, 6}, {10, 7}, {5, 9}},
-                "Sol: \"Tavern's east, down the lane.\"",
-                "Sol: \"Mind the river north.\"",
-                "Sol: \"Quiet today. Good.\""));
+                "Elowen: \"Tavern's east, down the lane.\"",
+                "Elowen: \"Mind the river north.\"",
+                "Elowen: \"Quiet today. Good.\""));
         for (Npc n : npcs) {
             n.idleT = 120 + rng.nextInt(180);
             solid[n.col][n.row] = true;
@@ -619,6 +627,25 @@ public final class VillageScene {
         assertTreeConnectivity();
         if (buildings.size() != DOOR_COUNT) {
             throw new IllegalStateException("Need " + DOOR_COUNT + " doors, have " + buildings.size());
+        }
+        // Doors start shut: stamp runtime collision after validation (flood
+        // fill needs them walkable), then prove the shut invariant.
+        for (Building b : buildings) solid[b.doorX][b.doorY] = true;
+        assertDoorsShut();
+    }
+
+    /** Every door starts shut + solid with a walkable entrance; none open. */
+    private void assertDoorsShut() {
+        if (openDoor != null) {
+            throw new IllegalStateException("a door starts open");
+        }
+        for (Building b : buildings) {
+            if (!solid[b.doorX][b.doorY]) {
+                throw new IllegalStateException("door starts open: " + b.name);
+            }
+            if (solid[b.enterX][b.enterY]) {
+                throw new IllegalStateException("entrance blocked: " + b.name);
+            }
         }
     }
 
@@ -1133,11 +1160,18 @@ public final class VillageScene {
         }
         if (want != null) preferred = want;
 
+        // Face-to-face freeze: while the dialogue panel is open both sides stay
+        // idle (NPC already skips its routine in TALKING); E still advances it.
+        if (dialogue.isOpen()) want = null;
+
         if (!stepping) {
             if (want == null) {
                 walkFrame = 0;
             } else if (want != facing) {
                 facing = want; // turn first, move next tick
+                // Turning to face a shut door counts as the opening tap, so
+                // entry is always 2 taps — never turn + bump + step.
+                bumpDoor(col + want.dx, row + want.dy);
             } else {
                 startStep(want);
             }
@@ -1156,6 +1190,10 @@ public final class VillageScene {
                 row = toR;
                 snapRender();
                 stepping = false;
+                if (openDoor != null && (col != openDoor.doorX || row != openDoor.doorY)) {
+                    solid[openDoor.doorX][openDoor.doorY] = true; // shuts behind you
+                    openDoor = null;
+                }
             }
         }
 
@@ -1189,7 +1227,11 @@ public final class VillageScene {
     private void startStep(Dir d) {
         int tc = col + d.dx;
         int tr = row + d.dy;
-        if (!isInsideMap(tc, tr) || solid[tc][tr]) return; // blocked
+        if (!isInsideMap(tc, tr)) return;
+        // Tap 1: pushing into a shut door swings it open (and shuts any other);
+        // tap 2 steps through. Locked doors never open.
+        if (bumpDoor(tc, tr)) return;
+        if (solid[tc][tr]) return; // blocked
         stepping = true;
         fromC = col; fromR = row;
         toC = tc; toR = tr;
@@ -1970,10 +2012,38 @@ public final class VillageScene {
         }
     }
 
-    /** Open door while the player stands on the doorway (door cell or entrance). */
+    /** Open sprite only while the player stands on the door cell itself. */
     private boolean playerAtDoorway(Building b) {
-        return (col == b.doorX && row == b.doorY)
-                || (col == b.enterX && row == b.enterY);
+        return col == b.doorX && row == b.doorY;
+    }
+
+    /** Which building owns the door at (c, r), or null. */
+    private Building buildingDoorAt(int c, int r) {
+        for (Building b : buildings) {
+            if (c == b.doorX && r == b.doorY) return b;
+        }
+        return null;
+    }
+
+    /**
+     * Bump a shut door: locked shows its blurb, else it swings open (any other
+     * shuts) and the tap is consumed. Returns true when a shut door ate the tap.
+     */
+    private boolean bumpDoor(int tc, int tr) {
+        Building shut = buildingDoorAt(tc, tr);
+        if (shut == null || shut == openDoor) return false;
+        if (shut.locked) {
+            message = shut.blurb;
+            msgTimer = MSG_TICKS;
+            return true;
+        }
+        if (openDoor != null) solid[openDoor.doorX][openDoor.doorY] = true;
+        openDoor = shut;
+        solid[tc][tr] = false;
+        message = "The door creaks open.";
+        msgTimer = MSG_TICKS;
+        AudioManager.playEffect("door");
+        return true;
     }
 
     private void drawBuilding(Graphics2D g2, int offX, int offY, Building b) {
