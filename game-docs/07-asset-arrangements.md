@@ -9,7 +9,7 @@ Source of truth for tile placement. Building purposes live in `01-village-buildi
 | Art | Source upload | Runtime copy | Project copy |
 | --- | --- | --- | --- |
 | Grass | `Pictures/Chronoseria Assets/grass.png` | `src/main/resources/assets/tiles/grass.png` | `assets/grass.png` |
-| Tree (kept old) | — | `src/main/resources/assets/tiles/tree.png` | `assets/tree.png` |
+| Tree (forest, schematic dark-green) | `assets/new-village-map.png` `#116D18` cells | `src/main/resources/assets/tiles/tree.png` | `assets/tree.png` |
 | Wall brick (front face) | `Pictures/Chronoseria Assets/Brick wall.png` | `src/main/resources/assets/tiles/wall_brick.png` | `assets/wall_brick.png` |
 | Wall Top (cap) | `Pictures/Chronoseria Assets/brick Wall Top.png` | `src/main/resources/assets/tiles/wall_top.png` | `assets/wall_top.png` |
 | Water | `Pictures/Chronoseria Assets/Water.png` | `src/main/resources/assets/tiles/water.png` | `assets/water.png` |
@@ -22,6 +22,8 @@ Source of truth for tile placement. Building purposes live in `01-village-buildi
 | House door, closed | `Pictures/Chronoseria Assets/House door closed.png` | `src/main/resources/assets/tiles/house_door_closed.png` | `assets/house_door_closed.png` |
 | House door, open (on doorway) | `Pictures/Chronoseria Assets/House door open.png` | `src/main/resources/assets/tiles/house_door_open.png` | `assets/house_door_open.png` |
 | Sewer grate (north + south wall crossings) | `Pictures/Chronoseria Assets/Sewer.png` | `src/main/resources/assets/tiles/sewer.png` | `assets/sewer.png` |
+| Fountain base (solid, Layer 2) | `Pictures/Chronoseria Assets/fountain base layer.png` | `src/main/resources/assets/tiles/fountain_base.png` | `assets/fountain_base.png` |
+| Fountain upper (walkable overhead, Layer 3) | `Pictures/Chronoseria Assets/fountain upper layer.png` | `src/main/resources/assets/tiles/fountain_upper.png` | `assets/fountain_upper.png` |
 
 Rules:
 
@@ -34,9 +36,9 @@ Rules:
 
 | Layer | Contents | Code |
 | --- | --- | --- |
-| Layer 1 ground | Grass, path, water, gate (bridges render as path) | `paintGround()` |
-| Layer 2 fringe | Wall caps/faces, sewer grates, tree trunks, fences, fountain, buildings base, doors, NPC blockers | Y-sorted `draw()` pass (`baseY * 4 + order`) |
-| Layer 3 overhead | Wall face lower strip (`wallBrickTile`, `sewerTile` for sewers), tree canopies, building roofs | `drawWallForeground()`, `drawTreeCanopyPass()`, `drawRoofForeground()` after player |
+| Layer 1 ground | Grass, path, water, gate (bridges render as path; 3x3 fountain plaza renders as path) | `paintGround()` |
+| Layer 2 fringe | Wall caps/faces, sewer grates, tree trunks, fences, fountain base, buildings base, doors, NPC blockers | Y-sorted `draw()` pass (`baseY * 4 + order`) |
+| Layer 3 overhead | Wall face lower strip (`wallBrickTile`, `sewerTile` for sewers), tree canopies, building roofs, fountain upper | `drawWallForeground()`, `drawTreeCanopyPass()`, `drawRoofForeground()`, `drawFountainUpperPass()` after player |
 
 Paint order is intentional: all-grass base → paths → water (`solid`) → bridges
 (ground stays `WATER` but renders as `path.png` and clears `solid`) → walls via
@@ -107,10 +109,31 @@ sampling in build tooling — never hand-transcribed).
 
 - Grass: `grass.png` tiled on `GRASS` (two-shade checker baked into the art). No
   procedural fallback — missing art fails fast at load.
-- Trees: none on this map (every green cell is grass checker). `tree.png` stays
-  loaded for future maps; trunk/canopy passes are dormant with empty `trees`.
-- Fountain: `(16,21)` single cell (dark-teal on the schematic), solid island amid
-  paths, drawn with `water.png`. No rim shapes.
+- Trees: 159 forest cells from the locked schematic dark-green layer
+  (`assets/new-village-map.png` `#116D18`, cell-center sampled), stamped via
+  `tree()` (`TREES` fixed array, same map every run, no RNG): solid trunk,
+  trunk Y-sorted Layer 2, canopy overhead Layer 3 (`tree.png` halves). Clumps
+  of 2-5 with grass gaps: northfield thickets (rows 0-2), ridge bands behind
+  the north buildings (rows 5-7), west ridge slivers, corner/dead-space fills,
+  south exterior woods; singles frame lanes/plaza/gate. Never on paths,
+  bridges, doors, entrances, water, or the plaza margin (cols 14-18, rows
+  19-23); 1 free cell around every entrance; never touching a building front
+  (south) row; NPC spawns clear (4 villager haunts overlap trunks and are
+  skipped by `pickHaunt`). ~28% forested by schematic count; fences (17 orange
+  cells) and wells (`(2,8)`, `(2,21)`) stay deferred as walkable grass, so the
+  fence-gap rule is dormant until fence art lands.
+- Fountain plaza: `3x3` cobble `PATH` at cols `15-17`, rows `20-22` (all walkable
+  except center). Base `(16,21)` = `fountain_base.png`, Layer 2 Y-sorted, `solid`.
+  Upper `(16,20)` = `fountain_upper.png`, Layer 3 overhead after player, walkable
+  (transparent, player steps under it and appears behind). Old single-cell
+  `water.png` fountain replaced. Layout (`c` = cobble, `f` = fountain):
+  ```text
+  ccc
+  cfc
+  cfc
+  ccc
+  ```
+  Center `5` of the `3x3` is the solid base; the cell above it is the walkable upper.
 - Fences: 17 orange cells on the schematic — deferred (no fence art in `assets/`);
   those cells stay walkable grass. Wire them up when art lands.
 - Wells: `(2,8)`, `(2,21)` dark-grey singles — deferred like fences; walkable grass.
@@ -125,7 +148,8 @@ sampling in build tooling — never hand-transcribed).
   walls live only here, door cell excluded). Door shows `house_door_open.png` while the player
   stands on the door or entrance cell, else `house_door_closed.png`.
 - Roster (7 canonical + 1 house): TAVERN `(7,6)`; MENTOR `(12,6)`; BLACKSMITH `(19,8)`;
-  MARKET `(24,8)`; HOUSE `(1,13)` on the west wall line (wall column stays clear);
+  MARKET `(25,8)` (corrected +1 east per schematic decode; door stays `(26,11)`);
+  HOUSE `(1,13)` on the west wall line (wall column stays clear);
   WIZARD `(6,16)`; SANCTUARY `(26,16)`; INN `(12,23)` by the south corridor.
   Doors: `(8,9)`, `(13,9)`, `(20,11)`, `(26,11)`, `(2,16)`, `(7,19)`, `(27,19)`, `(13,26)`;
   all entrances walkable (paths, except B5 `(2,17)` grass).
@@ -193,15 +217,17 @@ sampling in build tooling — never hand-transcribed).
 | Wall brick face | 2 (+3 strip) | Impassable | Top `row 4 x1..30`, bottom-band `row 24` outer spans, front `row 31` stem span minus gate (minus sewer cells) |
 | Sewer grate | 2 (+3 strip with `sewerTile`) | Impassable | Replaces brick at river crossings `(15,4)` + `(23,24)`, cap above |
 | Invisible bound | — | Impassable | Reserved; none currently placed (south is now visible wall) |
-| Tree trunk | 2 | Impassable | Base cell blocks |
+| Tree trunk | 2 | Impassable | Base cell blocks (159 forest cells) |
 | Tree canopy | 3 | Passable overlay | Visual only, covers head behind tree |
 | Building body/door frame | 2 | Impassable | Door cell itself walkable |
 | Roof | 3 | Overlay | Covers player walking behind |
-| Fence/fountain/NPC | 2 | Impassable | Grouped blockers |
+| Fountain base | 2 | Impassable | `(16,21)` on `3x3` cobble plaza, `fountain_base.png`, Y-sorted |
+| Fountain upper | 3 | Passable overlay | `(16,20)` transparent, `fountain_upper.png` via `drawFountainUpperPass()`, player goes behind |
+| Fence/NPC | 2 | Impassable | Grouped blockers |
 
 ## 8. Validation (never remove)
 
-`VillageScene` asserts at build time: doors reachable by flood fill from spawn; street frontage (no path on door cells, entrances walkable); door-on-facade (centered; legacy 4-wide INN exception dormant); inside map; no overlap; `wallBrick` only on top `row 4 x1..30`, bottom-band `row 24` outer spans, side bottoms `(0,24)/(31,24)`, and front `row 31` stem span minus gate (sewer cells replace bricks there and are tracked separately); caps continuous along the rectangle polygon; bottom/stem openings clear; every structure inside the walls and off walls; gate walkable; sewer rule per-unit (2 placed: north `(15,4)` + south `(23,24)`, each solid with cap above on a valid brick row); fountain solid; exactly 8 doors.
+`VillageScene` asserts at build time: doors reachable by flood fill from spawn; street frontage (no path on door cells, entrances walkable); door-on-facade (centered; legacy 4-wide INN exception dormant); inside map; no overlap; `wallBrick` only on top `row 4 x1..30`, bottom-band `row 24` outer spans, side bottoms `(0,24)/(31,24)`, and front `row 31` stem span minus gate (sewer cells replace bricks there and are tracked separately); caps continuous along the rectangle polygon; bottom/stem openings clear; every structure inside the walls and off walls; gate walkable; sewer rule per-unit (2 placed: north `(15,4)` + south `(23,24)`, each solid with cap above on a valid brick row); fountain plaza `3x3 PATH` cols `15-17` rows `20-22`, base `(16,21)` solid + upper `(16,20)` walkable; forest placement (159 schematic trees on `TREE` ground, solid, off walls/buildings/doors/entrances/NPCs/spawn, entrance buffers + plaza margin + building-front rows clear, count exact); forest connectivity (flood fill from spawn reaches every `PATH`/`GATE` cell modulo the fountain island, and every entrance); exactly 8 doors.
 
 ## 9. Adding a new block
 
@@ -244,3 +270,23 @@ sampling in build tooling — never hand-transcribed).
    water meets wall and replace that brick with `sewer.png` (solid, cap above).
    Current standard: north `(15,4)` + south `(23,24)`; never ship a plain brick
    at a water column.
+10. Tree placement rules (classic walled-town forest):
+    - Border: forest bands run just inside the walls plus the outside-walls
+      exterior (northfield, south woods), skipping the gate corridor, stem
+      opening, paths, river, and wall cells. The perimeter itself is wall, so
+      trees frame it instead of replacing it.
+    - Place trees in clusters of 2 to 5 and in forest zones (schematic
+      dark-green cells, fixed hand-verified pattern — same map every run, no
+      RNG). Uneven forest edges, with a few open cells inside.
+    - Keep about 40 to 50 percent of free grass open (schematic count rules;
+      current map: ~28% forested, rest open).
+    - Never on a path, bridge, door, entrance, fence, water, or plaza edge.
+    - Keep 1 free cell around every entrance. Keep 1 cell gap from building
+      fronts (south side). Trees behind and beside buildings are allowed.
+    - Fence-gap rule is dormant until fence art lands (fences render as
+      walkable grass; schematic adjacencies stand).
+    - Trees are solid single tiles (`tree()` trunk cell). Y-sort: trunk with
+      entities Layer 2, canopy drawn in front Layer 3.
+    - After placing, run a flood fill from spawn: every `PATH`/`GATE` cell and
+      every entrance must stay reachable. If not, remove the blocking tree —
+      never weaken the assert.

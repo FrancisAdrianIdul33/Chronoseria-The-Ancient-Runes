@@ -38,6 +38,65 @@ public final class VillageScene {
     static final int SPAWN_R = 29;
     static final int DOOR_COUNT = 8;
 
+    /**
+     * Forest map (locked schematic dark-green cells, hand-verified): 159 trees
+     * in clumps with grass gaps — northfield thickets, ridge bands behind the
+     * north buildings, west ridge slivers, corner/dead-space fills, south
+     * exterior woods. Single tile each: solid trunk, trunk Y-sorted, canopy
+     * overhead. Same pattern every run (no RNG).
+     */
+    static final int[][] TREES = {
+        // Northfield thickets (outside the top wall).
+        {0,0},{1,0},{2,0},{9,0},{21,0},{22,0},{23,0},{27,0},{28,0},{29,0},
+        {0,1},{1,1},{2,1},{3,1},{7,1},{11,1},{12,1},{17,1},{18,1},{19,1},{23,1},{24,1},{30,1},
+        {3,2},{4,2},{5,2},{6,2},{19,2},{27,2},{30,2},{31,2},
+        // West block behind TAVERN/MENTOR + east band (row 5).
+        {1,5},{2,5},{3,5},{4,5},{5,5},{6,5},{13,5},{14,5},{22,5},{23,5},{24,5},{25,5},{26,5},{27,5},{28,5},{29,5},{30,5},
+        // NW + NE forest bands (row 6).
+        {1,6},{2,6},{3,6},{4,6},{5,6},{19,6},{20,6},{21,6},{22,6},{23,6},{24,6},{25,6},{26,6},{27,6},{28,6},{29,6},{30,6},
+        // NW corner tails + NE corner block (row 7).
+        {1,7},{2,7},{3,7},{26,7},{27,7},{28,7},{29,7},{30,7},
+        // West ridge slivers + east singles (row 8).
+        {1,8},{10,8},{16,8},{29,8},{30,8},
+        // West ridge + mid gaps (row 9).
+        {1,9},{10,9},{16,9},{17,9},{23,9},{24,9},{30,9},
+        // Lane gap singles (rows 10-11).
+        {18,10},{30,10},
+        {18,11},
+        // West dead-space fill behind HOUSE (row 13).
+        {5,13},{6,13},{7,13},{8,13},{9,13},
+        // West fill + mid clumps (row 14).
+        {7,14},{8,14},{9,14},{10,14},{20,14},{21,14},{26,14},
+        // Mid run clump (row 15).
+        {19,15},{20,15},{21,15},
+        // Lane-side single (row 17).
+        {9,17},
+        // East singles (row 18).
+        {22,18},{29,18},
+        // South-lane gaps (row 19).
+        {12,19},{25,19},{29,19},
+        // Corridor mouth single (row 20).
+        {1,20},
+        // West + corridor/inner singles (row 21).
+        {1,21},{11,21},{12,21},
+        // West + east lane frame + south band (row 22).
+        {1,22},{2,22},{19,22},{25,22},{26,22},{27,22},{28,22},{29,22},{30,22},
+        // South-interior pair + stem-east pair (row 25).
+        {2,25},{3,25},{11,25},{26,25},{27,25},
+        // SW exterior block + inner singles (row 26).
+        {3,26},{4,26},{5,26},{6,26},{11,26},{16,26},{20,26},{26,26},{31,26},
+        // Corridor-east singles (row 27).
+        {20,27},{28,27},
+        // SW corner + gate-approach frame (row 28).
+        {0,28},{1,28},{8,28},{10,28},{19,28},{20,28},{31,28},
+        // West lane-side + inn-east + gate column gap (row 29).
+        {1,29},{2,29},{5,29},{10,29},{11,29},{12,29},{20,29},
+        // SW grass + far-east corner (row 30).
+        {5,30},{6,30},{31,30},
+        // South edge singles (row 31).
+        {2,31},{23,31},{24,31},{26,31},
+    };
+
     /** Ground layer tile kinds. */
     enum Ground { GRASS, PATH, ROAD, SQUARE, TREE, GATE, WATER }
 
@@ -143,7 +202,10 @@ public final class VillageScene {
     private BufferedImage houseDoorClosed;
     private BufferedImage houseDoorOpen;
     private BufferedImage sewerTile;
+    private BufferedImage fountainBase;
+    private BufferedImage fountainUpper;
     private final java.util.List<int[]> sewers = new java.util.ArrayList<>();
+    private final java.util.List<int[]> fountainUppers = new java.util.ArrayList<>();
     private boolean spritesTried;
 
     // ---- Dynamic wall mask: designer intent, stamped to T/W by neighbor rule ----
@@ -338,6 +400,8 @@ public final class VillageScene {
         houseDoorClosed = requireTile("/assets/tiles/house_door_closed.png");
         houseDoorOpen = requireTile("/assets/tiles/house_door_open.png");
         sewerTile = requireTile("/assets/tiles/sewer.png");
+        fountainBase = requireTile("/assets/tiles/fountain_base.png");
+        fountainUpper = requireTile("/assets/tiles/fountain_upper.png");
     }
 
     private BufferedImage requireTile(String resourcePath) {
@@ -466,16 +530,31 @@ public final class VillageScene {
         // Bridges: cobble path over water, walkable.
         bridge(15, 10); bridge(4, 12); bridge(17, 16); bridge(23, 20);
 
-        // Fountain: single teal cell, solid island amid paths, water sprite.
+        // Fountain plaza: 3x3 cobble (cols 15-17, rows 20-22), walkable except
+        // center (16,21) where the solid base sits. Upper art floats above at
+        // (16,20), walkable, drawn overhead so the player goes behind it.
+        // Layout:
+        //   ccc
+        //   cfc  (upper f = fountain_upper, no collision)
+        //   cfc  (lower f = fountain_base, solid)
+        //   ccc  (center 5 of the 3x3 is the solid base)
+        // Read as 3x3 cobble with a 2-high fountain column centered on it.
+        fillGround(15, 20, 3, 3, Ground.PATH);
         fountains.add(new int[]{16, 21});
         solid[16][21] = true;
+        fountainUppers.add(new int[]{16, 20});
+        // Upper stays walkable (no solid) so the player can step under it.
+
+        // Forest map: schematic dark-green cells, single tile each (solid trunk,
+        // trunk Y-sorted, canopy overhead). Fixed pattern, same every run.
+        for (int[] t : TREES) tree(t[0], t[1]);
 
         // ---- 5. Buildings: 8 doors, 7 canonical + 1 house, all 3x4 ----
         // Single straight roof row + 2 floors (upper window/plain, ground base + door).
         building("TAVERN", Kind.HOUSE, 7, 6, 3, 4, "Tavern — rumors and drinks over the counter.", true, false, 1, 3, 2, 2);
         building("MENTOR", Kind.HOUSE, 12, 6, 3, 4, "Mentor's house — train field skills here.", false, false, 1, 2, 1, 1);
         building("BLACKSMITH", Kind.WEAPON, 19, 8, 3, 4, "Blacksmith — blades over the door.", true, false, 1, 3, 2, 2);
-        building("MARKET", Kind.ITEM, 24, 8, 3, 4, "Market — potions and supplies.", true, false, 1, 1, 2, 1);
+        building("MARKET", Kind.ITEM, 25, 8, 3, 4, "Market — potions and supplies.", true, false, 1, 1, 2, 1);
         building("HOUSE", Kind.HOUSE, 1, 13, 3, 4, "A quiet house. The door is locked.", false, false, 1, 2, 3, 1);
         building("WIZARD", Kind.MAGIC, 6, 16, 3, 4, "Wizard's domain — it hums.", true, false, 1, 1, 2, 2);
         building("SANCTUARY", Kind.HOUSE, 26, 16, 3, 4, "Sanctuary — the rite revives the fallen.", false, false, 1, 2, 1, 1);
@@ -535,6 +614,9 @@ public final class VillageScene {
         assertDoorOnFacade();
         assertInsideMap();
         assertNoOverlap();
+        assertFountainPlaza();
+        assertTreePlacement();
+        assertTreeConnectivity();
         if (buildings.size() != DOOR_COUNT) {
             throw new IllegalStateException("Need " + DOOR_COUNT + " doors, have " + buildings.size());
         }
@@ -624,6 +706,12 @@ public final class VillageScene {
         for (int[] w : invisibleBounds) {
             if (!isInsideMap(w[0], w[1])) throw new IllegalStateException("Bound outside map");
         }
+        for (int[] f : fountains) {
+            if (!isInsideMap(f[0], f[1])) throw new IllegalStateException("Fountain base outside map");
+        }
+        for (int[] f : fountainUppers) {
+            if (!isInsideMap(f[0], f[1])) throw new IllegalStateException("Fountain upper outside map");
+        }
         for (Npc n : npcs) {
             if (!isInsideMap(n.col, n.row)) throw new IllegalStateException("NPC outside map");
         }
@@ -654,6 +742,11 @@ public final class VillageScene {
             for (int[] t : trees) {
                 if (n.col == t[0] && n.row == t[1]) {
                     throw new IllegalStateException("npc " + n.name + " on tree at " + n.col + "," + n.row);
+                }
+            }
+            for (int[] f : fountains) {
+                if (n.col == f[0] && n.row == f[1]) {
+                    throw new IllegalStateException("npc " + n.name + " on fountain at " + n.col + "," + n.row);
                 }
             }
             for (int[] w : wallTops) {
@@ -688,6 +781,8 @@ public final class VillageScene {
         }
         for (int[] t : trees) assertNotOnWall(t[0], t[1], "tree");
         for (int[] f : fences) assertNotOnWall(f[0], f[1], "fence");
+        for (int[] f : fountains) assertNotOnWall(f[0], f[1], "fountain base");
+        for (int[] f : fountainUppers) assertNotOnWall(f[0], f[1], "fountain upper");
         for (Npc n : npcs) assertNotOnWall(n.col, n.row, "npc " + n.name);
     }
 
@@ -867,6 +962,145 @@ public final class VillageScene {
         for (Building b : buildings) {
             if ((x == b.doorX && y == b.doorY) || (x == b.enterX && y == b.enterY)) {
                 throw new IllegalStateException(what + " on door/entrance at " + x + "," + y);
+            }
+        }
+    }
+
+    /**
+     * Fountain plaza: 3x3 cobble at cols 15-17 / rows 20-22, all PATH ground.
+     * Base (16,21) solid with fountain_base art; upper (16,20) walkable with
+     * fountain_upper art drawn overhead. Plaza stays inside walls, off
+     * buildings/doors/walls, with the walkable ring keeping flood-fill intact.
+     */
+    private void assertFountainPlaza() {
+        for (int y = 20; y <= 22; y++) {
+            for (int x = 15; x <= 17; x++) {
+                if (!isInsideMap(x, y)) {
+                    throw new IllegalStateException("fountain plaza outside map at " + x + "," + y);
+                }
+                if (ground[x][y] != Ground.PATH) {
+                    throw new IllegalStateException("fountain plaza must be PATH at " + x + "," + y);
+                }
+                assertNotOnWall(x, y, "fountain plaza");
+                assertNotOnDoor(x, y, "fountain plaza");
+                for (Building b : buildings) {
+                    if (x >= b.tx && x < b.tx + b.tw && y >= b.ty && y < b.ty + b.th) {
+                        throw new IllegalStateException("fountain plaza on building at " + x + "," + y);
+                    }
+                }
+            }
+        }
+        if (fountains.size() != 1 || fountainUppers.size() != 1) {
+            throw new IllegalStateException("fountain needs 1 base + 1 upper, have "
+                    + fountains.size() + "+" + fountainUppers.size());
+        }
+        int[] base = fountains.get(0);
+        int[] upper = fountainUppers.get(0);
+        if (base[0] != 16 || base[1] != 21) {
+            throw new IllegalStateException("fountain base off center at " + base[0] + "," + base[1]);
+        }
+        if (upper[0] != 16 || upper[1] != 20) {
+            throw new IllegalStateException("fountain upper off center at " + upper[0] + "," + upper[1]);
+        }
+        if (!solid[base[0]][base[1]]) {
+            throw new IllegalStateException("fountain base must be solid");
+        }
+        if (solid[upper[0]][upper[1]]) {
+            throw new IllegalStateException("fountain upper must stay walkable");
+        }
+    }
+
+    /**
+     * Forest placement (locked schematic dark-green cells): every tree sits
+     * inside the map on GRASS ground (stamped TREE), solid, off walls /
+     * buildings / doors / entrances / NPC spawns / player spawn, with 1 free
+     * cell around every entrance, 1 cell off the fountain plaza margin
+     * (cols 14-18, rows 19-23), and never touching a building front (south) row.
+     */
+    private void assertTreePlacement() {
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        for (int[] t : TREES) {
+            int x = t[0], y = t[1];
+            String key = x + "," + y;
+            if (!isInsideMap(x, y)) {
+                throw new IllegalStateException("tree outside map at " + key);
+            }
+            if (!seen.add(key)) {
+                throw new IllegalStateException("tree duplicate at " + key);
+            }
+            if (ground[x][y] != Ground.TREE) {
+                throw new IllegalStateException("tree must stamp TREE ground at " + key);
+            }
+            if (!solid[x][y]) {
+                throw new IllegalStateException("tree must be solid at " + key);
+            }
+            assertNotOnWall(x, y, "tree");
+            assertNotOnDoor(x, y, "tree");
+            for (Building b : buildings) {
+                if (x >= b.tx && x < b.tx + b.tw && y >= b.ty && y < b.ty + b.th) {
+                    throw new IllegalStateException("tree on building at " + key);
+                }
+                if (y == b.ty + b.th && x >= b.tx && x < b.tx + b.tw) {
+                    throw new IllegalStateException("tree touches building front at " + key);
+                }
+                if (Math.abs(x - b.enterX) <= 1 && Math.abs(y - b.enterY) <= 1) {
+                    throw new IllegalStateException("tree inside entrance buffer at " + key);
+                }
+            }
+            for (Npc n : npcs) {
+                if (n.col == x && n.row == y) {
+                    throw new IllegalStateException("tree on npc spawn at " + key);
+                }
+            }
+            if (x == SPAWN_C && y == SPAWN_R) {
+                throw new IllegalStateException("tree on player spawn at " + key);
+            }
+            if (x >= 14 && x <= 18 && y >= 19 && y <= 23) {
+                throw new IllegalStateException("tree inside plaza margin at " + key);
+            }
+        }
+        if (trees.size() != TREES.length) {
+            throw new IllegalStateException("tree count drift: have " + trees.size() + ", want " + TREES.length);
+        }
+    }
+
+    /**
+     * Forest connectivity: flood fill from spawn over walkable cells must reach
+     * every PATH/GATE cell (the fountain base island excluded by design) and
+     * every entrance — trees must not cut off any area or route to a door.
+     */
+    private void assertTreeConnectivity() {
+        boolean[][] seen = new boolean[MAP_W][MAP_H];
+        int[] q = new int[MAP_W * MAP_H * 2];
+        int head = 0, tail = 0;
+        q[tail++] = SPAWN_C; q[tail++] = SPAWN_R;
+        seen[SPAWN_C][SPAWN_R] = true;
+        int[] dx = {1, -1, 0, 0};
+        int[] dy = {0, 0, 1, -1};
+        while (head < tail) {
+            int cx = q[head++];
+            int cy = q[head++];
+            for (int i = 0; i < 4; i++) {
+                int nx = cx + dx[i];
+                int ny = cy + dy[i];
+                if (isInsideMap(nx, ny) && !seen[nx][ny] && !solid[nx][ny]) {
+                    seen[nx][ny] = true;
+                    q[tail++] = nx; q[tail++] = ny;
+                }
+            }
+        }
+        for (int y = 0; y < MAP_H; y++) {
+            for (int x = 0; x < MAP_W; x++) {
+                if (x == 16 && y == 21) continue; // fountain base: solid island by design
+                Ground g = ground[x][y];
+                if ((g == Ground.PATH || g == Ground.GATE) && !seen[x][y]) {
+                    throw new IllegalStateException("path cut off by trees at " + x + "," + y);
+                }
+            }
+        }
+        for (Building b : buildings) {
+            if (!seen[b.enterX][b.enterY] || !seen[b.doorX][b.doorY]) {
+                throw new IllegalStateException("door cut off by trees: " + b.name);
             }
         }
     }
@@ -1612,11 +1846,11 @@ public final class VillageScene {
                 }
             }
 
-            // Fountain cells (water sprite, solid islands).
-            paintFountains(g2, offX, offY);
+            // Fountain plaza ground (3x3 cobble) already painted by paintGround().
+            // No separate ground stamp needed here.
 
-            // Y-sorted Layer 2: building bases, wall caps/faces, tree trunks, NPCs, player.
-            // Roofs/canopies/wall faces re-appear in the Layer 3 pass below (overhead).
+            // Y-sorted Layer 2: building bases, wall caps/faces, tree trunks, fountain base, NPCs, player.
+            // Roofs/canopies/wall faces/fountain upper re-appear in Layer 3 below (overhead).
             java.util.TreeMap<Integer, java.util.List<Runnable>> order = new java.util.TreeMap<>();
             for (Building b : buildings) {
                 int baseY = (b.ty + b.th) * TILE;
@@ -1647,6 +1881,12 @@ public final class VillageScene {
                 order.computeIfAbsent(baseY * 4 + 2, k -> new java.util.ArrayList<>())
                         .add(() -> drawTreeTrunk(g2, offX, offY, t[0], t[1]));
             }
+            for (int[] f : fountains) {
+                if (f[0] < c0 - 1 || f[0] > c1 + 1 || f[1] < r0 - 1 || f[1] > r1 + 1) continue;
+                int baseY = (f[1] + 1) * TILE;
+                order.computeIfAbsent(baseY * 4 + 2, k -> new java.util.ArrayList<>())
+                        .add(() -> drawFountainBase(g2, offX, offY, f[0], f[1]));
+            }
             for (Npc n : npcs) {
                 int baseY = (int) (n.renderCy + 13);
                 order.computeIfAbsent(baseY * 4 + 3, k -> new java.util.ArrayList<>())
@@ -1659,11 +1899,12 @@ public final class VillageScene {
                 for (Runnable d : batch) d.run();
             }
 
-            // Layer 3 overhead (Dawn of Souls): wall face strip, tree canopies, roofs.
+            // Layer 3 overhead (Dawn of Souls): wall face strip, tree canopies, roofs, fountain upper.
             // Position-independent: redraws only overhead bands after the player.
             drawWallForeground(g2, offX, offY, c0, r0, c1, r1);
             drawTreeCanopyPass(g2, offX, offY, c0, r0, c1, r1);
             drawRoofForeground(g2, offX, offY, c0, r0, c1, r1);
+            drawFountainUpperPass(g2, offX, offY, c0, r0, c1, r1);
 
             if (debug) drawDebug(g2, offX, offY, viewW, viewH, c0, r0, c1, r1);
             drawHud(g2, viewW, viewH);
@@ -1703,14 +1944,29 @@ public final class VillageScene {
         return g == Ground.PATH || g == Ground.ROAD || g == Ground.SQUARE || g == Ground.GATE;
     }
 
-    /** Fountain cells: solid islands drawn with the water sprite. */
-    private void paintFountains(Graphics2D g2, int offX, int offY) {
+    /** Layer 2 fountain base: solid, Y-sorted with player/NPCs. */
+    private void drawFountainBase(Graphics2D g2, int offX, int offY, int c, int r) {
         ensureSprites();
         int s = TILE * SCALE;
-        for (int[] f : fountains) {
-            g2.drawImage(waterTile,
-                    offX + (f[0] * TILE - camX) * SCALE,
-                    offY + (f[1] * TILE - camY) * SCALE, s, s, null);
+        int x = offX + (c * TILE - camX) * SCALE;
+        int y = offY + (r * TILE - camY) * SCALE;
+        g2.drawImage(fountainBase, x, y, s, s, null);
+    }
+
+    /** Layer 3 fountain upper: PASSABLE transparent overlay, drawn after the player. */
+    private void drawFountainUpper(Graphics2D g2, int offX, int offY, int c, int r) {
+        ensureSprites();
+        int s = TILE * SCALE;
+        int x = offX + (c * TILE - camX) * SCALE;
+        int y = offY + (r * TILE - camY) * SCALE;
+        g2.drawImage(fountainUpper, x, y, s, s, null);
+    }
+
+    /** Layer 3 fountain upper pass: player walks under (16,20) and appears behind it. */    private void drawFountainUpperPass(Graphics2D g2, int offX, int offY,
+                                       int c0, int r0, int c1, int r1) {
+        for (int[] f : fountainUppers) {
+            if (f[0] < c0 - 1 || f[0] > c1 + 1 || f[1] < r0 - 1 || f[1] > r1 + 1) continue;
+            drawFountainUpper(g2, offX, offY, f[0], f[1]);
         }
     }
 
@@ -2060,6 +2316,7 @@ public final class VillageScene {
             pic[b.enterY][b.enterX] = 'd';
         }
         for (int[] f : fountains) pic[f[1]][f[0]] = 'F';
+        for (int[] f : fountainUppers) pic[f[1]][f[0]] = 'U';
         for (int[] w : wallBodies) pic[w[1]][w[0]] = 'w';
         for (int[] w : wallTops) pic[w[1]][w[0]] = 'W';
         for (int[] sw : sewers) pic[sw[1]][sw[0]] = 'S';
@@ -2077,13 +2334,14 @@ public final class VillageScene {
         for (int y = 0; y < MAP_H; y++) {
             System.out.println(String.valueOf(pic[y]));
         }
-        System.out.println("Legend: .=grass p=path G=gate ~=water T=tree F=fountain W=wallTop w=wallBrick S=sewer ==bridge x=invisibleBound");
+        System.out.println("Legend: .=grass p=path G=gate ~=water T=tree F=fountain-base U=fountain-upper W=wallTop w=wallBrick S=sewer ==bridge x=invisibleBound");
         System.out.println("I=inn V=tavern E=mentor W=blacksmith i=market H=house M=wizard U=sanctuary D=door d=entrance N=npc P=spawn");
         int treeCount = trees.size();
         System.out.println("Trees: " + treeCount + " WallTops: " + wallTops.size()
                 + " WallBricks: " + wallBodies.size() + " Bounds: " + invisibleBounds.size()
                 + " Buildings: " + buildings.size() + " NPCs: " + npcs.size()
                 + " Bridges: " + bridges.size() + " Fountains: " + fountains.size()
+                + "+" + fountainUppers.size()
                 + " Sewers: " + sewers.size());
     }
 }
