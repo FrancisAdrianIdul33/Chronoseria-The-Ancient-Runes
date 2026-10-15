@@ -21,7 +21,7 @@ Source of truth for tile placement. Building purposes live in `01-village-buildi
 | House base, plain (ground floor) | `Pictures/Chronoseria Assets/house wall lower level no window.png` | `src/main/resources/assets/tiles/house_wall_base_plain.png` | `assets/house_wall_base_plain.png` |
 | House door, closed | `Pictures/Chronoseria Assets/House door closed.png` | `src/main/resources/assets/tiles/house_door_closed.png` | `assets/house_door_closed.png` |
 | House door, open (on doorway) | `Pictures/Chronoseria Assets/House door open.png` | `src/main/resources/assets/tiles/house_door_open.png` | `assets/house_door_open.png` |
-| Sewer grate (front wall only) | `Pictures/Chronoseria Assets/Sewer.png` | `src/main/resources/assets/tiles/sewer.png` | `assets/sewer.png` |
+| Sewer grate (north + south wall crossings) | `Pictures/Chronoseria Assets/Sewer.png` | `src/main/resources/assets/tiles/sewer.png` | `assets/sewer.png` |
 
 Rules:
 
@@ -34,10 +34,14 @@ Rules:
 
 | Layer | Contents | Code |
 | --- | --- | --- |
-| Layer 1 ground | Grass, path, road, plaza, gate | `paintGround()` |
-| Layer 2 fringe | Wall caps/faces, tree trunks, fences, fountain, buildings base, doors, NPC blockers | Y-sorted `draw()` pass |
-| Layer 3 overhead | Wall face lower strip, tree canopies, building roofs | `drawWallForeground()`, `drawTreeCanopyPass()`, `drawRoofForeground()` after player |
+| Layer 1 ground | Grass, path, water, gate (bridges render as path) | `paintGround()` |
+| Layer 2 fringe | Wall caps/faces, sewer grates, tree trunks, fences, fountain, buildings base, doors, NPC blockers | Y-sorted `draw()` pass (`baseY * 4 + order`) |
+| Layer 3 overhead | Wall face lower strip (`wallBrickTile`, `sewerTile` for sewers), tree canopies, building roofs | `drawWallForeground()`, `drawTreeCanopyPass()`, `drawRoofForeground()` after player |
 
+Paint order is intentional: all-grass base → paths → water (`solid`) → bridges
+(ground stays `WATER` but renders as `path.png` and clears `solid`) → walls via
+`wallMask` overlay (walls set `solid` but never change `ground`, so seams sit on
+grass and water gaps at walls are deliberate sewer points) → buildings/NPCs/fountain.
 Collision is a separate bitmask: `solid[x][y]`. Visuals never decide movement; `startStep()` blocks on `solid`.
 
 ## 3. Walls — outer-rectangle perimeter, caps wrap, faces front-only
@@ -60,7 +64,11 @@ cap `T`, otherwise south-facing face `W`.
   solid. Gate `x15` stays `GATE` walkable on both rows.
 - Ground under every wall cell stays `GRASS` so seams sit on grass, not gaps.
   The base fill is all-grass first, so there is grass inside + outside the walls.
-  The north river passes under the top band (wall solid over grass ground).
+  Walls never set `ground[][]` — they only overlay `wallTops`/`wallBodies` and set
+  `solid`. Water is therefore never placed under a wall; the river stops at the
+  wall edge and the sewer grate carries it visually through.
+  The north river passes under the top band via sewer `(15,4)`, and the south run
+  passes under the bottom band via sewer `(23,24)` (walls stay solid over grass ground).
 
 Corner rule for future stamps:
 
@@ -72,7 +80,7 @@ IF cell == BRICK_FRONT at (x, y):
   Never stamp BRICK on a side column
 ```
 
-Counts: `wallTops = 115`, `wallBodies = 61`, `bounds = 0`.
+Counts: `wallTops = 115`, `wallBodies = 59`, `sewers = 2`, `bounds = 0`.
 
 ## 4. Ground, paths, gate, spawn
 
@@ -86,9 +94,12 @@ sampling in build tooling — never hand-transcribed).
   stays walkable grass); corridor west `col 10, rows 21-27`; gate column
   `col 15, rows 21-29`; inn frontage `row 27, cols 11-14`; nub `(16,22)`.
 - Bridges (cobble over water, walkable): `(15,10)`, `(4,12)`, `(17,16)`, `(23,20)`.
-- River: north edge entry `col 15, rows 0-2` (passes under the top wall); mid run
-  `col 15` down to row 11, row-12 run `cols 1-15`, east run `row 16, cols 15-23`,
-  south run `col 23` to the moat `row 29, cols 23-29`, exiting off-map at `col 29`.
+  A bridge cell keeps `WATER` ground but `paintGround()` draws `path.png` first via
+  `isBridge()` and `solid` is cleared, so the crossing reads as cobble and walks.
+- River: north edge entry `col 15, rows 0-2` (passes under the top wall via sewer
+  `(15,4)`); mid run `col 15` down to row 11, row-12 run `cols 1-15`, east run
+  `row 16, cols 15-23`, south run `col 23` (passes under the bottom band via sewer
+  `(23,24)`) to the moat `row 29, cols 23-29`, exiting off-map at `col 29`.
 - Gate floor: `(15,30),(15,31) = GATE` (1-wide), always walkable.
 - Spawn: `(13,29)` on grass by the gate column, facing up.
 
@@ -122,8 +133,9 @@ sampling in build tooling — never hand-transcribed).
   no path ground may cover a door cell; every entrance stays walkable; flood fill
   from spawn must reach all 8 entrances. The old one-cell buffer rule no longer
   applies — the map is drawn street-style like the reference village.
-- No wall-river meeting on this map: the moat exits off-map at the open SE edge,
-  so the sewer system is dormant (code + pattern rule retained for future maps).
+- Wall-river crossings on this map: north `(15,3-4)` and south `(23,23-24)`.
+  Both get a sewer grate — always apply sewers on north and south walls where
+  the river meets a wall (never leave a plain brick at the water column).
 - Sewer placement pattern (5 wide, water column centered, grass buffers both sides).
   Legend: `t` = wall cap, `w` = wall brick, `s` = sewer grate, `z` = water/river, `g` = grass.
 
@@ -136,10 +148,16 @@ sampling in build tooling — never hand-transcribed).
   ggzgg
   ```
 
+  Placed: north `S = (15,4)` with cap `(15,3)`, water `(15,2)/(15,5)`; south
+  `S = (23,24)` with cap `(23,23)`, water `(23,22)/(23,25)`. South 5-wide south
+  row reads `Wgwgg` at cols 21-25 because the stem wall `W` at `(21,25)` sits
+  2 west of the river — the immediate `gwg` buffer still holds.
+
   Rules: caps run continuous above (never a gap at the sewer column); the sewer replaces
-  the brick in the brick row (never the cap row); water runs through both sides (off-map
-  south of a map-edge front wall); front wall only, never side walls; the sewer is solid
-  with a `wallTop` cap directly above it (asserted at build time).
+  the brick in the brick row (never the cap row); water runs through both sides;
+  sewers only on valid brick rows (top `row 4`, bottom-band `row 24`, front `row 31`),
+  never side walls; the sewer is solid with a `wallTop` cap directly above it
+  (asserted at build time).
 - Paths never touch buildings except via entrance cells.
 - NPCs: Sol `(5,7)`, Bram `(22,7)`, ODD `(16,13)`, MIRA `(13,18)`, Pip `(13,28)` —
   solid, on walkable grass, never on doors/paths/walls/fountain.
@@ -170,9 +188,10 @@ sampling in build tooling — never hand-transcribed).
 
 | Block | Layer | Solid | Notes |
 | --- | --- | --- | --- |
-| Grass/path/road/plaza/gate | 1 | Passable | Walking layer |
-| Wall Top cap | 2 | Impassable | Top row + corners + bar sides + bar-bottom `row 12` + stem sides + front `row 30` |
-| Wall brick face | 2 (+3 strip) | Impassable | Top `row 1 x1..30` + bar-bottom `row 13` outer spans + front `row 31` stem span minus gate |
+| Grass/path/road/plaza/gate | 1 | Passable | Walking layer; bridges keep `WATER` ground but render path + clear solid |
+| Wall Top cap | 2 | Impassable | Top band `row 3` + corners, sides `col 0/31 rows 5-23`, bottom band `row 23`, stem sides, front `row 30` |
+| Wall brick face | 2 (+3 strip) | Impassable | Top `row 4 x1..30`, bottom-band `row 24` outer spans, front `row 31` stem span minus gate (minus sewer cells) |
+| Sewer grate | 2 (+3 strip with `sewerTile`) | Impassable | Replaces brick at river crossings `(15,4)` + `(23,24)`, cap above |
 | Invisible bound | — | Impassable | Reserved; none currently placed (south is now visible wall) |
 | Tree trunk | 2 | Impassable | Base cell blocks |
 | Tree canopy | 3 | Passable overlay | Visual only, covers head behind tree |
@@ -182,14 +201,14 @@ sampling in build tooling — never hand-transcribed).
 
 ## 8. Validation (never remove)
 
-`VillageScene` asserts at build time: doors reachable by flood fill from spawn; street frontage (no path on door cells, entrances walkable); door-on-facade (centered; legacy 4-wide INN exception dormant); inside map; no overlap; `wallBrick` only on top `row 4 x1..30`, bottom-band `row 24` outer spans, side bottoms `(0,24)/(31,24)`, and front `row 31` stem span minus gate; caps continuous along the rectangle polygon; bottom/stem openings clear; every structure inside the walls and off walls; gate walkable; sewer rule per-unit (dormant — none placed); fountain solid; exactly 8 doors.
+`VillageScene` asserts at build time: doors reachable by flood fill from spawn; street frontage (no path on door cells, entrances walkable); door-on-facade (centered; legacy 4-wide INN exception dormant); inside map; no overlap; `wallBrick` only on top `row 4 x1..30`, bottom-band `row 24` outer spans, side bottoms `(0,24)/(31,24)`, and front `row 31` stem span minus gate (sewer cells replace bricks there and are tracked separately); caps continuous along the rectangle polygon; bottom/stem openings clear; every structure inside the walls and off walls; gate walkable; sewer rule per-unit (2 placed: north `(15,4)` + south `(23,24)`, each solid with cap above on a valid brick row); fountain solid; exactly 8 doors.
 
 ## 9. Adding a new block
 
 1. Add 32x32 PNG to both `assets/` and `src/main/resources/assets/tiles/`.
 2. Load in `ensureSprites()` via `loadTile("/assets/tiles/<name>.png")` with null fallback.
-3. Stamp with `wallTop / wallBrick / tree / invisibleBound` or `fillGround`; set `solid` to match §7.
-4. Draw in the correct pass: ground → Y-sorted Layer 2 → Layer 3 overhead after player.
+3. Stamp with `wallTop / wallBrick / sewer / tree / invisibleBound` or `fillGround`; set `solid` to match §7. `sewer(c,r)` removes the stamped brick from `wallBodies`, tracks it in `sewers`, and keeps `solid`.
+4. Draw in the correct pass: ground → Y-sorted Layer 2 (`drawWallBrick()` draws `sewerTile` when `isSewer()`) → Layer 3 overhead after player (sewers use the same strip clip but with `sewerTile`).
 5. Extend validation counts if the block is structural.
 
 ## 10. Standards & principles — follow these every time a map is generated
@@ -221,3 +240,7 @@ sampling in build tooling — never hand-transcribed).
 8. Rooms and dungeons reuse this stamper and these validators; only the ground
    and wall art swap. Do not duplicate wall logic per map — extend the shared
    `wallTop / wallBrick / wallMask / stampWallsDynamic` helpers instead.
+9. Every river-wall crossing gets a sewer: always check north and south walls where
+   water meets wall and replace that brick with `sewer.png` (solid, cap above).
+   Current standard: north `(15,4)` + south `(23,24)`; never ship a plain brick
+   at a water column.

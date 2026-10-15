@@ -241,6 +241,13 @@ public final class VillageScene {
         solid[c][r] = true;
     }
 
+    /** Sewer grate: replaces a wall brick where the river passes under, solid. */
+    private void sewer(int c, int r) {
+        wallBodies.removeIf(a -> a[0] == c && a[1] == r);
+        sewers.add(new int[]{c, r});
+        solid[c][r] = true;
+    }
+
     /** Invisible map edge: solid, no texture. Keeps player inside without visuals. */
     private void invisibleBound(int c, int r) {
         invisibleBounds.add(new int[]{c, r});
@@ -483,9 +490,13 @@ public final class VillageScene {
         buildStemWalls();
         buildFrontWall();
         stampWallsDynamic();
+        // River passes under the top band at x15: brick becomes a sewer grate.
+        // Pattern around (15,3-4): ggwgg / ttttt / ttstt / ggwgg (s = sewer).
+        sewer(15, 4);
+        // River passes under the bottom band at x23: same pattern at (23,23-24).
+        sewer(23, 24);
         // No trees on this map (all greens are grass checker); no fences/wells yet
-        // (deferred cells stay walkable grass); sewer system dormant (no wall-river
-        // meeting — the moat exits off-map at the open SE edge).
+        // (deferred cells stay walkable grass).
 
         // NPCs rehomed to the new regions, each with a home zone.
         npcs.add(new Npc("MIRA", 13, 18, VillagePalette.WATER, true,
@@ -635,6 +646,7 @@ public final class VillageScene {
         // solid but have no texture; they must not cover doors/entrances either.
         for (int[] w : wallTops) assertNotOnPath(w[0], w[1], "wallTop");
         for (int[] w : wallBodies) assertNotOnPath(w[0], w[1], "wallBrick");
+        for (int[] w : sewers) assertNotOnPath(w[0], w[1], "sewer");
         for (int[] w : invisibleBounds) assertNotOnDoor(w[0], w[1], "bound");
         assertWallCollision();
         assertTopWallContinuous();
@@ -702,17 +714,23 @@ public final class VillageScene {
                 throw new IllegalStateException("bound must be solid at " + w[0] + "," + w[1]);
             }
         }
-        // Sewers (if any): front brick row only, solid, cap above. Dormant when the
-        // river meets no wall (this map's moat exits off-map at the open SE edge).
+        // Sewers replace a brick where the river passes under a wall:
+        // solid, with a cap directly above, on a valid brick row.
         for (int[] sw : sewers) {
-            if (sw[1] != MAP_H - 1) {
-                throw new IllegalStateException("sewer off front row at " + sw[0] + "," + sw[1]);
-            }
             if (!solid[sw[0]][sw[1]]) {
                 throw new IllegalStateException("sewer must be solid at " + sw[0] + "," + sw[1]);
             }
             if (!containsCell(wallTops, sw[0], sw[1] - 1)) {
                 throw new IllegalStateException("sewer without cap above at " + sw[0] + "," + sw[1]);
+            }
+            boolean topRow = sw[1] == 4 && sw[0] >= 1 && sw[0] <= MAP_W - 2;
+            boolean bottomBand = sw[1] == 24 && ((sw[0] <= 8) || (sw[0] >= 22));
+            boolean frontRow = sw[1] == MAP_H - 1 && sw[0] >= 9 && sw[0] <= 21 && sw[0] != 15;
+            if (!topRow && !bottomBand && !frontRow) {
+                throw new IllegalStateException("sewer off brick row at " + sw[0] + "," + sw[1]);
+            }
+            if (containsCell(wallBodies, sw[0], sw[1])) {
+                throw new IllegalStateException("sewer overlaps brick at " + sw[0] + "," + sw[1]);
             }
         }
         if (solid[15][30] || solid[15][31]) {
@@ -732,6 +750,12 @@ public final class VillageScene {
             throw new IllegalStateException("corner caps missing at (0,4)/(31,4)");
         }
         for (int x = 1; x < MAP_W - 1; x++) {
+            if (isSewer(x, 4)) {
+                if (!containsCell(wallTops, x, 3)) {
+                    throw new IllegalStateException("top sewer cap gap at x=" + x);
+                }
+                continue;
+            }
             if (!containsCell(wallBodies, x, 4)) {
                 throw new IllegalStateException("top brick gap at x=" + x);
             }
@@ -764,11 +788,23 @@ public final class VillageScene {
             throw new IllegalStateException("stem junction caps missing at (9,24)/(21,24)");
         }
         for (int x = 0; x <= 8; x++) {
+            if (isSewer(x, 24)) {
+                if (!containsCell(wallTops, x, 23)) {
+                    throw new IllegalStateException("bottom-band sewer cap gap at x=" + x);
+                }
+                continue;
+            }
             if (!containsCell(wallBodies, x, 24)) {
                 throw new IllegalStateException("bottom-band west brick gap at x=" + x);
             }
         }
         for (int x = 22; x < MAP_W; x++) {
+            if (isSewer(x, 24)) {
+                if (!containsCell(wallTops, x, 23)) {
+                    throw new IllegalStateException("bottom-band sewer cap gap at x=" + x);
+                }
+                continue;
+            }
             if (!containsCell(wallBodies, x, 24)) {
                 throw new IllegalStateException("bottom-band east brick gap at x=" + x);
             }
@@ -1803,6 +1839,14 @@ public final class VillageScene {
                 // Only the lower face overlaps a south-adjacent player; clip to it.
                 g2.setClip(x, y + s - strip, s, strip);
                 g2.drawImage(wallBrickTile, x, y, s, s, null);
+            }
+            for (int[] w : sewers) {
+                int c = w[0], r = w[1];
+                if (c < c0 - 1 || c > c1 + 1 || r < r0 - 1 || r > r1 + 1) continue;
+                int x = offX + (c * TILE - camX) * SCALE;
+                int y = offY + (r * TILE - camY) * SCALE;
+                g2.setClip(x, y + s - strip, s, strip);
+                g2.drawImage(sewerTile, x, y, s, s, null);
             }
         } finally {
             g2.setClip(oldClip);
