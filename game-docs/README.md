@@ -12,6 +12,8 @@
 | `05-damage-status.md` | Damage & statuses | Status definitions, rules, cross-ref |
 | `06-recommendations-future-work.md` | Backlog | Priorities, TBD, tuning |
 | `07-asset-arrangements.md` | Tile placement | Block coords, layers, collision |
+| `08-npc-villagers.md` | Villagers | Mind FSM, yields, dialogue, tuning |
+| `09-npc-dialogue.md` | Dialogue | Panel flow, roster lines, close rules |
 
 Rules:
 - One source of truth per topic (see Owns column). Others link, don't duplicate.

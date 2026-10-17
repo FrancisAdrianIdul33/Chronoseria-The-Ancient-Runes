@@ -67,11 +67,13 @@ public final class GamePanel extends JPanel {
     public void startGame() {
         village.reset();
         screen = Screen.GAME;
+        AudioManager.playMusic("village");
         requestFocusInWindow();
     }
 
     public void showTitle() {
         screen = Screen.TITLE;
+        AudioManager.stopMusic();
         tick = 0;
     }
 

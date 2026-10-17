@@ -8,14 +8,26 @@ Source of truth for tile placement. Building purposes live in `01-village-buildi
 
 | Art | Source upload | Runtime copy | Project copy |
 | --- | --- | --- | --- |
-| Grass | `Pictures/Chronoseria Assets/Grass.png` | `src/main/resources/assets/tiles/grass.png` | `assets/grass.png` |
-| Tree | `Pictures/Chronoseria Assets/Tree.png` | `src/main/resources/assets/tiles/tree.png` | `assets/tree.png` |
-| Wall brick (front face) | `Pictures/Chronoseria Assets/Wall brick.png` | `src/main/resources/assets/tiles/wall_brick.png` | `assets/wall_brick.png` |
-| Wall Top (cap) | `Pictures/Chronoseria Assets/Wall Top.png` | `src/main/resources/assets/tiles/wall_top.png` | `assets/wall_top.png` |
+| Grass | `Pictures/Chronoseria Assets/grass.png` | `src/main/resources/assets/tiles/grass.png` | `assets/grass.png` |
+| Tree (forest, schematic dark-green) | `Pictures/Chronoseria Assets/Tree base.png`, `tree upper.png` | `src/main/resources/assets/tiles/tree_base.png`, `tree_upper.png` | `assets/tree_base.png`, `assets/tree_upper.png` |
+| Wall brick (front face) | `Pictures/Chronoseria Assets/Brick wall.png` | `src/main/resources/assets/tiles/wall_brick.png` | `assets/wall_brick.png` |
+| Wall Top (cap) | `Pictures/Chronoseria Assets/brick Wall Top.png` | `src/main/resources/assets/tiles/wall_top.png` | `assets/wall_top.png` |
+| Water | `Pictures/Chronoseria Assets/Water.png` | `src/main/resources/assets/tiles/water.png` | `assets/water.png` |
+| Cobble path (all path kinds) | `Pictures/Chronoseria Assets/Cobblestone path.png` | `src/main/resources/assets/tiles/path.png` | `assets/path.png` |
+| House roof (single row) | `Pictures/Chronoseria Assets/house roof.png` | `src/main/resources/assets/tiles/house_roof.png` | `assets/house_roof.png` |
+| House wall, window | `Pictures/Chronoseria Assets/House wall window only.png` | `src/main/resources/assets/tiles/house_wall_window.png` | `assets/house_wall_window.png` |
+| House wall, plain | `Pictures/Chronoseria Assets/house wall no window.png` | `src/main/resources/assets/tiles/house_wall_plain.png` | `assets/house_wall_plain.png` |
+| House base, window (ground floor) | `Pictures/Chronoseria Assets/House wall lower level.png` | `src/main/resources/assets/tiles/house_wall_base_window.png` | `assets/house_wall_base_window.png` |
+| House base, plain (ground floor) | `Pictures/Chronoseria Assets/house wall lower level no window.png` | `src/main/resources/assets/tiles/house_wall_base_plain.png` | `assets/house_wall_base_plain.png` |
+| House door, closed | `Pictures/Chronoseria Assets/House door closed.png` | `src/main/resources/assets/tiles/house_door_closed.png` | `assets/house_door_closed.png` |
+| House door, open (on doorway) | `Pictures/Chronoseria Assets/House door open.png` | `src/main/resources/assets/tiles/house_door_open.png` | `assets/house_door_open.png` |
+| Sewer grate (north + south wall crossings) | `Pictures/Chronoseria Assets/Sewer.png` | `src/main/resources/assets/tiles/sewer.png` | `assets/sewer.png` |
+| Fountain base (solid, Layer 2) | `Pictures/Chronoseria Assets/fountain base layer.png` | `src/main/resources/assets/tiles/fountain_base.png` | `assets/fountain_base.png` |
+| Fountain upper (walkable overhead, Layer 3) | `Pictures/Chronoseria Assets/fountain upper layer.png` | `src/main/resources/assets/tiles/fountain_upper.png` | `assets/fountain_upper.png` |
 
 Rules:
 
-- All four are 32x32. One image = one cell, drawn 1:1 to `s = TILE * SCALE`.
+- All are 32x32 (verified). One image = one cell, drawn 1:1 to `s = TILE * SCALE`.
 - Grid: `TILE = 16`, `MAP_W = MAP_H = 32`, `SCALE = 2` (`VillageScene.java`).
 - Never stretch a tile across the map. Never place off-grid.
 - Keep uploads in Pictures untouched; runtime loads from `src/main/resources` via `AssetLoader`.
@@ -24,34 +36,41 @@ Rules:
 
 | Layer | Contents | Code |
 | --- | --- | --- |
-| Layer 1 ground | Grass, path, road, plaza, gate | `paintGround()` |
-| Layer 2 fringe | Wall caps/faces, tree trunks, fences, fountain, buildings base, doors, NPC blockers | Y-sorted `draw()` pass |
-| Layer 3 overhead | Wall face lower strip, tree canopies, building roofs | `drawWallForeground()`, `drawTreeCanopyPass()`, `drawRoofForeground()` after player |
+| Layer 1 ground | Grass, path, water, gate (bridges render as path; 3x3 fountain plaza renders as path) | `paintGround()` |
+| Layer 2 fringe | Wall caps/faces, sewer grates, tree trunks, fences, fountain base, buildings base, doors, NPC blockers | Y-sorted `draw()` pass (`baseY * 4 + order`) |
+| Layer 3 overhead | Wall face lower strip (`wallBrickTile`, `sewerTile` for sewers), tree canopies, building roofs, fountain upper | `drawWallForeground()`, `drawTreeCanopyPass()`, `drawRoofForeground()`, `drawFountainUpperPass()` after player |
 
+Paint order is intentional: all-grass base → paths → water (`solid`) → bridges
+(ground stays `WATER` but renders as `path.png` and clears `solid`) → walls via
+`wallMask` overlay (walls set `solid` but never change `ground`, so seams sit on
+grass and water gaps at walls are deliberate sewer points) → buildings/NPCs/fountain.
 Collision is a separate bitmask: `solid[x][y]`. Visuals never decide movement; `startStep()` blocks on `solid`.
 
-## 3. Walls — T-shaped perimeter, caps wrap, faces front-only
+## 3. Walls — outer-rectangle perimeter, caps wrap, faces front-only
 
 Implementer: `VillageScene.java` §7 — `buildTopWall()`, `buildSideCaps()`,
-`buildBarBottom()`, `buildStemWalls()`, `buildFrontWall()` write a `wallMask`,
+`buildBottomBand()`, `buildStemWalls()`, `buildFrontWall()` write a `wallMask`,
 then `stampWallsDynamic()` resolves it: mask cell with wall south of it becomes
-cap `T`, otherwise south-facing face `W`. T-junctions resolve cap-to-cap
-automatically.
+cap `T`, otherwise south-facing face `W`.
 
-- Top bar: `row 0, x0..31 = wallTop`, solid; `row 1, x1..30 = wallBrick` with
-  corners `(0,1)/(31,1) = wallTop`, solid.
-- Bar sides: `col 0 / col 31, y2..12 = wallTop`, solid. No brick on sides.
-- Bar-bottom band: `row 12, x0..10 + x21..31 = wallTop` (inner corners
-  `(10,12)/(21,12)` close the junction mouth); `row 13` same outer spans =
-  `wallBrick` plus `x10/x21 = wallTop` junction caps. Opening `x11..20` on both
-  rows connects bar to stem.
-- Stem: `col 10 / col 21, y14..29 = wallTop`, solid. Interior `x11..20`.
-- Front wall, top-to-bottom = cap then face: `row 30, x10..21 except gate =
+- Top band: `rows 3-4, x0..31`; row 3 all `wallTop`, solid; `row 4, x1..30 =
+  wallBrick` with corners `(0,4)/(31,4) = wallTop`, solid.
+- Sides: `col 0 / col 31, y5..24`, solid. `rows 5-23 = wallTop`; bottom cells
+  `(0,24)/(31,24) = wallBrick` (3D thickness, like the old bar-bottom corners).
+- Bottom band: `rows 23-24, x0..9 + x21..31`; row 23 all `wallTop`; row 24 =
+  `wallBrick` except junction caps `(9,24)/(21,24)`. Opening `x10..20` on both
+  rows (B8 roof + lanes pass through, no wall cells).
+- Stem: `col 9 / col 21, y25..29 = wallTop`, solid.
+- Front wall, top-to-bottom = cap then face: `rows 30-31, x9..21 except gate =
   wallTop` first layer, solid; `row 31, same span = wallBrick` last layer,
-  solid, corners wrapped in brick for 3D thickness. Gate `x15` stays `GATE`
-  walkable on both rows.
+  solid. Gate `x15` stays `GATE` walkable on both rows.
 - Ground under every wall cell stays `GRASS` so seams sit on grass, not gaps.
-  The base fill is all-grass first, so there is grass inside + outside the T.
+  The base fill is all-grass first, so there is grass inside + outside the walls.
+  Walls never set `ground[][]` — they only overlay `wallTops`/`wallBodies` and set
+  `solid`. Water is therefore never placed under a wall; the river stops at the
+  wall edge and the sewer grate carries it visually through.
+  The north river passes under the top band via sewer `(15,4)`, and the south run
+  passes under the bottom band via sewer `(23,24)` (walls stay solid over grass ground).
 
 Corner rule for future stamps:
 
@@ -63,61 +82,169 @@ IF cell == BRICK_FRONT at (x, y):
   Never stamp BRICK on a side column
 ```
 
-Counts: `wallTops = 118`, `wallBodies = 60`, `bounds = 0`.
+Counts: `wallTops = 115`, `wallBodies = 59`, `sewers = 2`, `bounds = 0`.
 
 ## 4. Ground, paths, gate, spawn
 
-- Base: entire map starts `GRASS` (grass inside + outside the T).
-- Spine `col 15, rows 8-30` (1-line, unbroken through the junction);
-  north lane `row 8, cols 3-28`; west plaza court `cols 3-7, rows 9-11`.
+Layout source: `assets/new-village-map.png` (32x32 schematic, decoded by cell-center
+sampling in build tooling — never hand-transcribed).
+
+- Base: entire map starts `GRASS` (grass inside + outside the walls).
+- Path loops (all cobble `path.png`): north lane `row 10, cols 4-17`; west loop
+  `col 4, rows 11-20`; middle loop `col 17, rows 11-22`; east lane `row 12, cols 18-30`;
+  east loop `col 30, rows 13-20`; south lane `row 20, cols 5-29` (fence gap at `x17`
+  stays walkable grass); corridor west `col 10, rows 21-27`; gate column
+  `col 15, rows 21-29`; inn frontage `row 27, cols 11-14`; nub `(16,22)`.
+- Bridges (cobble over water, walkable): `(15,10)`, `(4,12)`, `(17,16)`, `(23,20)`.
+  A bridge cell keeps `WATER` ground but `paintGround()` draws `path.png` first via
+  `isBridge()` and `solid` is cleared, so the crossing reads as cobble and walks.
+- River: north edge entry `col 15, rows 0-2` (passes under the top wall via sewer
+  `(15,4)`); mid run `col 15` down to row 11, row-12 run `cols 1-15`, east run
+  `row 16, cols 15-23`, south run `col 23` (passes under the bottom band via sewer
+  `(23,24)`) to the moat `row 29, cols 23-29`, exiting off-map at `col 29`.
 - Gate floor: `(15,30),(15,31) = GATE` (1-wide), always walkable.
-- Spawn: `(15,29)`, facing up.
+- Spawn: `(13,29)` on grass by the gate column, facing up.
 
-## 5. Trees, grass, fountain, fences
+## 5. Trees, grass, fountain, fences, wells
 
-- Grass: `grass.png` tiled on `GRASS` and under `TREE` cells; procedural checker is fallback only.
-- Trees: bar edges `col 2 / col 29 rows 3-11`, `row 2 x5-6/x19-20`, bar-south
-  `(27-28,9)`; stem flanks `(11,18),(11,23),(20,16),(20,23),(13,27),(18,27)`;
-  outside backdrop `(3,16),(4,16),(3,20),(5,24),(27,16),(28,20),(26,24),(4,27),(28,27)`.
-  `solid = true`, `ground = TREE`. `tree.png` split: bottom half trunk in Layer 2,
-  top half canopy in Layer 3 overlay.
-- Fountain: `(19,17)` 2x2, solid, east court off the spine.
-- Fences: `(14,23),(14,24),(16,23),(16,24)`, solid Layer 2.
+- Grass: `grass.png` tiled on `GRASS` (two-shade checker baked into the art). No
+  procedural fallback — missing art fails fast at load.
+- Trees: 159 forest cells from the locked schematic dark-green layer
+  (`assets/new-village-map.png` `#116D18`, cell-center sampled), stamped via
+  `tree()` (`TREES` fixed array, same map every run, no RNG): solid trunk,
+  trunk Y-sorted Layer 2, canopy overhead Layer 3 (`tree_base.png`/`tree_upper.png`). Clumps
+  of 2-5 with grass gaps: northfield thickets (rows 0-2), ridge bands behind
+  the north buildings (rows 5-7), west ridge slivers, corner/dead-space fills,
+  south exterior woods; singles frame lanes/plaza/gate. Never on paths,
+  bridges, doors, entrances, water, or the plaza margin (cols 14-18, rows
+  19-23); 1 free cell around every entrance; never touching a building front
+  (south) row; NPC spawns clear (4 villager haunts overlap trunks and are
+  skipped by `pickHaunt`). ~28% forested by schematic count; fences (17 orange
+  cells) and wells (`(2,8)`, `(2,21)`) stay deferred as walkable grass, so the
+  fence-gap rule is dormant until fence art lands.
+- Fountain plaza: `3x3` cobble `PATH` at cols `15-17`, rows `20-22` (all walkable
+  except center). Base `(16,21)` = `fountain_base.png`, Layer 2 Y-sorted, `solid`.
+  Upper `(16,20)` = `fountain_upper.png`, Layer 3 overhead after player, walkable
+  (transparent, player steps under it and appears behind). Old single-cell
+  `water.png` fountain replaced. Layout (`c` = cobble, `f` = fountain):
+  ```text
+  ccc
+  cfc
+  cfc
+  ccc
+  ```
+  Center `5` of the `3x3` is the solid base; the cell above it is the walkable upper.
+- Fences: 17 orange cells on the schematic — deferred (no fence art in `assets/`);
+  those cells stay walkable grass. Wire them up when art lands.
+- Wells: `(2,8)`, `(2,21)` dark-grey singles — deferred like fences; walkable grass.
 
 ## 6. Buildings and doors
 
-- 11 buildings, bottom-center door on facade row, entrance cell directly south. `E` works only on entrance facing up.
-- Roster: INN `(3,3)` 5x4; HOUSE `(10,4)`; WEAPON `(17,4)`; ARMOR `(24,4)`;
-  HOUSE `(11,10)`; ITEM `(17,10)`; MAGIC `(11,14)`; HOUSE `(11,19),(11,24)`;
-  HOUSE `(17,14),(17,19)` — all 3x3 except INN. Junction houses sit at `x11-13`
-  / `x17-19` leaving grass buffers `x14/x16` so the spine never touches a building.
+- 8 buildings, all 3x4, door centered on facade bottom row (except legacy 4-wide
+  INN rule, dormant), entrance cell directly south. `E` works only on entrance facing up.
+- Doors start shut (solid). Entry is 2-tap: pushing into a shut door swings it
+  open (tap 1, `The door creaks open.`), then release and push again to step
+  through (tap 2) — holding the opening press never walks you in. Turning to
+  face a shut door counts as tap 1, so entry is always 2 taps and never
+  turn + bump + step. It shuts behind you when you step off, and bumping
+  another door shuts the first (at most one open). The open sprite shows from
+  the opening click (with the creak message) until the door shuts behind you.
+  HOUSE stays locked — bumping it shows
+  its blurb and never opens. `E` on the entrance facing up still reads the
+  building blurb.
+- Facades (sprite): single straight roof row (`house_roof.png`); max 2 floors — upper rows mix
+  `house_wall_window.png` / `house_wall_plain.png` (1–4 windows per building, centered);
+  ground row mixes `house_wall_base_window.png` / `house_wall_base_plain.png` (lower-level
+  walls live only here, door cell excluded). Door shows `house_door_open.png` while the player
+  stands on the door or entrance cell, else `house_door_closed.png`.
+- Roster (7 canonical + 1 house): TAVERN `(7,6)`; MENTOR `(12,6)`; BLACKSMITH `(19,8)`;
+  MARKET `(25,8)` (corrected +1 east per schematic decode; door stays `(26,11)`);
+  HOUSE `(1,13)` on the west wall line (wall column stays clear);
+  WIZARD `(6,16)`; SANCTUARY `(26,16)`; INN `(12,23)` by the south corridor.
+  Doors: `(8,9)`, `(13,9)`, `(20,11)`, `(26,11)`, `(2,16)`, `(7,19)`, `(27,19)`, `(13,26)`;
+  all entrances walkable (paths, except B5 `(2,17)` grass).
+- Street frontage (amends old path-gap rule): paths may run flush against facades;
+  no path ground may cover a door cell; every entrance stays walkable; flood fill
+  from spawn must reach all 8 entrances. The old one-cell buffer rule no longer
+  applies — the map is drawn street-style like the reference village.
+- Wall-river crossings on this map: north `(15,3-4)` and south `(23,23-24)`.
+  Both get a sewer grate — always apply sewers on north and south walls where
+  the river meets a wall (never leave a plain brick at the water column).
+- Sewer placement pattern (5 wide, water column centered, grass buffers both sides).
+  Legend: `t` = wall cap, `w` = wall brick, `s` = sewer grate, `z` = water/river, `g` = grass.
+
+  ```text
+  ggzgg
+  ggzgg
+  ttttt
+  wwsww
+  ggzgg
+  ggzgg
+  ```
+
+  Placed: north `S = (15,4)` with cap `(15,3)`, water `(15,2)/(15,5)`; south
+  `S = (23,24)` with cap `(23,23)`, water `(23,22)/(23,25)`. South 5-wide south
+  row reads `Wgwgg` at cols 21-25 because the stem wall `W` at `(21,25)` sits
+  2 west of the river — the immediate `gwg` buffer still holds.
+
+  Rules: caps run continuous above (never a gap at the sewer column); the sewer replaces
+  the brick in the brick row (never the cap row); water runs through both sides;
+  sewers only on valid brick rows (top `row 4`, bottom-band `row 24`, front `row 31`),
+  never side walls; the sewer is solid with a `wallTop` cap directly above it
+  (asserted at build time).
 - Paths never touch buildings except via entrance cells.
-- NPCs: MIRA `(14,19)`, Bram `(16,12)`, ODD `(16,13)`, Pip `(14,28)`, Sol `(9,7)` — solid, never on doors/trees/paths.
+- NPCs: Elowen `(5,7)`, Darius `(22,7)`, Kaelira `(16,13)`, Amara `(13,18)`, Theron `(13,28)` —
+  solid, on walkable grass, never on doors/paths/walls/fountain.
+- Villager minds (all five, zoned): Elowen north-west block, Darius north-east block, Kaelira
+  center loops, Amara mid-south + fountain court, Theron corridor-south + gate — each wanders
+  only its home haunts so every part stays covered. `IDLE` 2–5s → `WANDER` BFS → rest
+  2–6s. `TALKING` freezes facing the player with 3 cycling lines. `MOVE_ASIDE`
+  steps to a free side cell (never doors/player/walls) only when blocking an
+  approaching player; `BACK_UP` retreats when pinched. Resume past 4 tiles.
+  Logical cell + `solid[][]` move at step begin (atomic, no mid-tween overlap),
+  render catches up over 18 ticks; calm near the player instead of bustling feet.
+- Yield pressure (any villager): contact block, closing within 2 from any side,
+  or tailing in-line behind within 4 while stepping. Dodges chain on a short
+  cooldown and drop the stale wander path; the next haunt pick biases away from
+  the player so they never walk straight back into a tail. Nose-to-nose with no
+  sides free resolves as `PASS_THROUGH`: 2 scripted steps (your cell, then the
+  cell beyond along their heading, walls/NPCs still abort), so you squeeze past
+  each other instead of deadlocking.
+- Cornered exits: a villager standing on your only way out clears a chained
+  2–3 step path off your exit line (gates bypassed once, then re-armed).
+- Herding: sustained pressing accumulates; at threshold the villager commits to
+  a `break-away` — the reachable zone cell with most separation plus open
+  neighbors — facing it at once and strolling there, ignoring minor re-presses
+  until arrival. Counts as the minute's dodge. At most one dodge per
+  villager per minute (3600-tick gate).
 
 ## 7. Collision quick matrix
 
 | Block | Layer | Solid | Notes |
 | --- | --- | --- | --- |
-| Grass/path/road/plaza/gate | 1 | Passable | Walking layer |
-| Wall Top cap | 2 | Impassable | Top row + corners + bar sides + bar-bottom `row 12` + stem sides + front `row 30` |
-| Wall brick face | 2 (+3 strip) | Impassable | Top `row 1 x1..30` + bar-bottom `row 13` outer spans + front `row 31` stem span minus gate |
+| Grass/path/road/plaza/gate | 1 | Passable | Walking layer; bridges keep `WATER` ground but render path + clear solid |
+| Wall Top cap | 2 | Impassable | Top band `row 3` + corners, sides `col 0/31 rows 5-23`, bottom band `row 23`, stem sides, front `row 30` |
+| Wall brick face | 2 (+3 strip) | Impassable | Top `row 4 x1..30`, bottom-band `row 24` outer spans, front `row 31` stem span minus gate (minus sewer cells) |
+| Sewer grate | 2 (+3 strip with `sewerTile`) | Impassable | Replaces brick at river crossings `(15,4)` + `(23,24)`, cap above |
 | Invisible bound | — | Impassable | Reserved; none currently placed (south is now visible wall) |
-| Tree trunk | 2 | Impassable | Base cell blocks |
+| Tree trunk | 2 | Impassable | Base cell blocks (159 forest cells) |
 | Tree canopy | 3 | Passable overlay | Visual only, covers head behind tree |
 | Building body/door frame | 2 | Impassable | Door cell itself walkable |
 | Roof | 3 | Overlay | Covers player walking behind |
-| Fence/fountain/NPC | 2 | Impassable | Grouped blockers |
+| Fountain base | 2 | Impassable | `(16,21)` on `3x3` cobble plaza, `fountain_base.png`, Y-sorted |
+| Fountain upper | 3 | Passable overlay | `(16,20)` transparent, `fountain_upper.png` via `drawFountainUpperPass()`, player goes behind |
+| Fence/NPC | 2 | Impassable | Grouped blockers |
 
 ## 8. Validation (never remove)
 
-`VillageScene` asserts at build time: doors reachable by flood fill from spawn; path gap; door-on-facade; inside map; no overlap; `wallBrick` only on top `row 1 x1..30`, bar-bottom `row 13` outer spans, and front `row 31` stem span minus gate; caps continuous along the T polygon; stem/junction openings clear; every structure inside the T and off walls; gate walkable; exactly 11 doors.
+`VillageScene` asserts at build time: doors reachable by flood fill from spawn; street frontage (no path on door cells, entrances walkable); door-on-facade (centered; legacy 4-wide INN exception dormant); inside map; no overlap; `wallBrick` only on top `row 4 x1..30`, bottom-band `row 24` outer spans, side bottoms `(0,24)/(31,24)`, and front `row 31` stem span minus gate (sewer cells replace bricks there and are tracked separately); caps continuous along the rectangle polygon; bottom/stem openings clear; every structure inside the walls and off walls; gate walkable; sewer rule per-unit (2 placed: north `(15,4)` + south `(23,24)`, each solid with cap above on a valid brick row); fountain plaza `3x3 PATH` cols `15-17` rows `20-22`, base `(16,21)` solid + upper `(16,20)` walkable; forest placement (159 schematic trees on `TREE` ground, solid, off walls/buildings/doors/entrances/NPCs/spawn, entrance buffers + plaza margin + building-front rows clear, count exact); forest connectivity (flood fill from spawn reaches every `PATH`/`GATE` cell modulo the fountain island, and every entrance); doors start shut+solid with walkable entrances and none open (`assertDoorsShut`, stamped after the reachability asserts); exactly 8 doors.
 
 ## 9. Adding a new block
 
 1. Add 32x32 PNG to both `assets/` and `src/main/resources/assets/tiles/`.
 2. Load in `ensureSprites()` via `loadTile("/assets/tiles/<name>.png")` with null fallback.
-3. Stamp with `wallTop / wallBrick / tree / invisibleBound` or `fillGround`; set `solid` to match §7.
-4. Draw in the correct pass: ground → Y-sorted Layer 2 → Layer 3 overhead after player.
+3. Stamp with `wallTop / wallBrick / sewer / tree / invisibleBound` or `fillGround`; set `solid` to match §7. `sewer(c,r)` removes the stamped brick from `wallBodies`, tracks it in `sewers`, and keeps `solid`.
+4. Draw in the correct pass: ground → Y-sorted Layer 2 (`drawWallBrick()` draws `sewerTile` when `isSewer()`) → Layer 3 overhead after player (sewers use the same strip clip but with `sewerTile`).
 5. Extend validation counts if the block is structural.
 
 ## 10. Standards & principles — follow these every time a map is generated
@@ -134,17 +261,42 @@ Counts: `wallTops = 118`, `wallBodies = 60`, `bounds = 0`.
 4. Every opening (gate, door gap, corridor mouth) is flanked by caps, and inner
    T corners get explicit corner caps so no grass notch shows at the turn.
    Gates and doors are 1-wide unless the design doc says otherwise.
-5. Paths are 1-line spines and lanes with a single-tile gate. Where a road passes
-   a building, keep one cell of plain ground as a buffer on each side so the road
-   never touches a footprint except on a registered entrance cell.
-6. Buildings sit on walkable ground clear of walls, with bottom-center doors and
+5. Paths are loop/lane networks.
+   Street frontage is allowed: a path may run flush against a facade, but no
+   path ground may cover a door cell and every entrance stays registered walkable.
+6. Buildings sit on walkable ground clear of walls, with centered doors and
    a walkable entrance cell directly south; `E` works only on the entrance facing
-   up. Trees split trunk (Layer 2, solid) / canopy (Layer 3, overlay). Props and
+   up. Fountains are solid water-sprite islands. Props and
    NPCs sit on walkable ground, never on paths, doors, entrances, or walls.
 7. A map ships only when every build-time assert passes: flood-fill reachability
-   from spawn/entry, path gap, door-on-facade, inside-map, no-overlap,
+   from spawn/entry, street frontage, door-on-facade, inside-map, no-overlap,
    face-placement, `T`-over-`W`, containment off walls, walkable gate, exact
-   interactable count. Do not weaken an assert to make a layout fit — fix the layout.
+   interactable count. (Street frontage above is a documented design change,
+   not a weakening: door/entrance guarantees hold.) Do not weaken an assert to make a layout fit — fix the layout.
 8. Rooms and dungeons reuse this stamper and these validators; only the ground
    and wall art swap. Do not duplicate wall logic per map — extend the shared
    `wallTop / wallBrick / wallMask / stampWallsDynamic` helpers instead.
+9. Every river-wall crossing gets a sewer: always check north and south walls where
+   water meets wall and replace that brick with `sewer.png` (solid, cap above).
+   Current standard: north `(15,4)` + south `(23,24)`; never ship a plain brick
+   at a water column.
+10. Tree placement rules (classic walled-town forest):
+    - Border: forest bands run just inside the walls plus the outside-walls
+      exterior (northfield, south woods), skipping the gate corridor, stem
+      opening, paths, river, and wall cells. The perimeter itself is wall, so
+      trees frame it instead of replacing it.
+    - Place trees in clusters of 2 to 5 and in forest zones (schematic
+      dark-green cells, fixed hand-verified pattern — same map every run, no
+      RNG). Uneven forest edges, with a few open cells inside.
+    - Keep about 40 to 50 percent of free grass open (schematic count rules;
+      current map: ~28% forested, rest open).
+    - Never on a path, bridge, door, entrance, fence, water, or plaza edge.
+    - Keep 1 free cell around every entrance. Keep 1 cell gap from building
+      fronts (south side). Trees behind and beside buildings are allowed.
+    - Fence-gap rule is dormant until fence art lands (fences render as
+      walkable grass; schematic adjacencies stand).
+    - Trees are solid single tiles (`tree()` trunk cell). Y-sort: trunk with
+      entities Layer 2, canopy drawn in front Layer 3.
+    - After placing, run a flood fill from spawn: every `PATH`/`GATE` cell and
+      every entrance must stay reachable. If not, remove the blocking tree —
+      never weaken the assert.
