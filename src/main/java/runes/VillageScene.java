@@ -193,7 +193,8 @@ public final class VillageScene {
     private BufferedImage grassTile;
     private BufferedImage wallBrickTile;
     private BufferedImage wallTopTile;
-    private BufferedImage treeTile;
+    private BufferedImage treeBaseTile;
+    private BufferedImage treeUpperTile;
     private BufferedImage waterTile;
     private BufferedImage pathTile;
     private BufferedImage houseRoof;
@@ -403,7 +404,8 @@ public final class VillageScene {
         grassTile = requireTile("/assets/tiles/grass.png");
         wallBrickTile = requireTile("/assets/tiles/wall_brick.png");
         wallTopTile = requireTile("/assets/tiles/wall_top.png");
-        treeTile = requireTile("/assets/tiles/tree.png");
+        treeBaseTile = requireTile("/assets/tiles/tree_base.png");
+        treeUpperTile = requireTile("/assets/tiles/tree_upper.png");
         waterTile = requireTile("/assets/tiles/water.png");
         pathTile = requireTile("/assets/tiles/path.png");
         houseRoof = requireTile("/assets/tiles/house_roof.png");
@@ -2102,35 +2104,22 @@ public final class VillageScene {
         g2.drawString(b.name, x + (w - labelW) / 2, y - 4);
     }
 
-    /** Layer 2 trunk: solid base. Bottom half of the 32x32 tree art. */
+    /** Layer 2 trunk: solid base. */
     private void drawTreeTrunk(Graphics2D g2, int offX, int offY, int c, int r) {
         ensureSprites();
         int s = TILE * SCALE;
         int x = offX + (c * TILE - camX) * SCALE;
         int y = offY + (r * TILE - camY) * SCALE;
-        // Clip to bottom half so only the trunk/base shows in the Layer 2 pass.
-        java.awt.Shape old = g2.getClip();
-        try {
-            g2.setClip(x, y + s / 2, s, s - s / 2);
-            g2.drawImage(treeTile, x, y, s, s, null);
-        } finally {
-            g2.setClip(old);
-        }
+        g2.drawImage(treeBaseTile, x, y, s, s, null);
     }
 
-    /** Layer 3 canopy: PASSABLE visual overlay, drawn after the player. Top half of art. */
+    /** Layer 3 canopy: PASSABLE visual overlay, drawn after the player. */
     private void drawTreeCanopy(Graphics2D g2, int offX, int offY, int c, int r) {
         ensureSprites();
         int s = TILE * SCALE;
         int x = offX + (c * TILE - camX) * SCALE;
         int y = offY + (r * TILE - camY) * SCALE;
-        java.awt.Shape old = g2.getClip();
-        try {
-            g2.setClip(x, y, s, s / 2);
-            g2.drawImage(treeTile, x, y, s, s, null);
-        } finally {
-            g2.setClip(old);
-        }
+        g2.drawImage(treeUpperTile, x, y, s, s, null);
     }
 
     /** Top-wall face: front of the FF1 horizontal wall, solid — blocks movement. */

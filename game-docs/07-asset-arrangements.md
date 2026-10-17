@@ -9,7 +9,7 @@ Source of truth for tile placement. Building purposes live in `01-village-buildi
 | Art | Source upload | Runtime copy | Project copy |
 | --- | --- | --- | --- |
 | Grass | `Pictures/Chronoseria Assets/grass.png` | `src/main/resources/assets/tiles/grass.png` | `assets/grass.png` |
-| Tree (forest, schematic dark-green) | `assets/new-village-map.png` `#116D18` cells | `src/main/resources/assets/tiles/tree.png` | `assets/tree.png` |
+| Tree (forest, schematic dark-green) | `Pictures/Chronoseria Assets/Tree base.png`, `tree upper.png` | `src/main/resources/assets/tiles/tree_base.png`, `tree_upper.png` | `assets/tree_base.png`, `assets/tree_upper.png` |
 | Wall brick (front face) | `Pictures/Chronoseria Assets/Brick wall.png` | `src/main/resources/assets/tiles/wall_brick.png` | `assets/wall_brick.png` |
 | Wall Top (cap) | `Pictures/Chronoseria Assets/brick Wall Top.png` | `src/main/resources/assets/tiles/wall_top.png` | `assets/wall_top.png` |
 | Water | `Pictures/Chronoseria Assets/Water.png` | `src/main/resources/assets/tiles/water.png` | `assets/water.png` |
@@ -112,7 +112,7 @@ sampling in build tooling — never hand-transcribed).
 - Trees: 159 forest cells from the locked schematic dark-green layer
   (`assets/new-village-map.png` `#116D18`, cell-center sampled), stamped via
   `tree()` (`TREES` fixed array, same map every run, no RNG): solid trunk,
-  trunk Y-sorted Layer 2, canopy overhead Layer 3 (`tree.png` halves). Clumps
+  trunk Y-sorted Layer 2, canopy overhead Layer 3 (`tree_base.png`/`tree_upper.png`). Clumps
   of 2-5 with grass gaps: northfield thickets (rows 0-2), ridge bands behind
   the north buildings (rows 5-7), west ridge slivers, corner/dead-space fills,
   south exterior woods; singles frame lanes/plaza/gate. Never on paths,
