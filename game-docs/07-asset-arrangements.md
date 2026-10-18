@@ -376,3 +376,11 @@ Legend: `.` grass, `p` path, `G` gate, `~` water, `T` tree, `F` fountain base,
 Rendering rule: the map is rendered in full every frame (all 32x32 cells) with the
 camera clamped to the map bounds, so no blue gaps appear at the edges when the
 camera moves. The view is clipped to the window.
+
+South exterior extension (rows 32-34, outside the front wall): 3 extra rows of
+grass added south of the village. The river extends south along col 29 (rows
+32-34). Trees and bushes are scattered on free grass cells, clearing the gate
+corridor (cols 14-16, rows 32-34) so the facade/entrance stays unobstructed.
+Every cell in rows 32-34 is solid (invisible bound) so the player cannot pass
+into the exterior; transition to other areas is deferred. Counts: 6 trees, 6
+bushes in the extension; +96 invisible bounds.
