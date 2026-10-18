@@ -1941,11 +1941,13 @@ public final class VillageScene {
             int vpW = VIEW_TX * TILE * SCALE;
             int vpH = VIEW_TY * TILE * SCALE;
             updateCamera(vpW, vpH);
-            int offX = (viewW - vpW) / 2;
-            int offY = (viewH - vpH) / 2;
+            int offX = ((viewW - vpW) / 2 / (TILE * SCALE)) * (TILE * SCALE);
+            int offY = ((viewH - vpH) / 2 / (TILE * SCALE)) * (TILE * SCALE);
 
             g2.setColor(GamePalette.ROYAL_DEEP);
             g2.fillRect(0, 0, viewW, viewH);
+            java.awt.Shape oldClip = g2.getClip();
+            g2.setClip(offX, offY, vpW, vpH);
 
             int c0 = Math.max(0, camX / TILE);
             int r0 = Math.max(0, camY / TILE);
@@ -2037,6 +2039,7 @@ public final class VillageScene {
             drawRoofForeground(g2, offX, offY, c0, r0, c1, r1);
             drawFountainUpperPass(g2, offX, offY, c0, r0, c1, r1);
 
+            g2.setClip(oldClip);
             if (debug) drawDebug(g2, offX, offY, viewW, viewH, c0, r0, c1, r1);
             drawHud(g2, viewW, viewH);
         } finally {
