@@ -38,6 +38,28 @@ public final class VillageScene {
     static final int SPAWN_R = 29;
     static final int DOOR_COUNT = 8;
 
+    // Inn interior constants
+    private static final int INN_INT_W = 12;
+    private static final int INN_INT_H = 8;
+    private static final int INN_DOOR_X = 5;
+    private static final int INN_DOOR_Y = 7;
+    private static final int INN_SPAWN_X = 5;
+    private static final int INN_SPAWN_Y = 5;
+
+    // Interior mode
+    private boolean inInnInterior = false;
+    private Npc innkeeper;
+    private int[][] innWalls; // 12x8: 0=floor, 1=wall, 2=counter, 3=bed, 4=door
+    private boolean[][] innSolid;
+
+    // Fade transition (300 ms each way at 60 UPS)
+    private static final int FADE_TICKS = 18;
+    private int fadePhase; // 0 = idle, 1 = fading out, 2 = fading in
+    private float fadeAlpha;
+    private boolean pendingInn; // true = switch to the inn at full black
+    private int pendingCol, pendingRow;
+    private Dir pendingFacing;
+
     /**
      * Forest map (locked schematic dark-green cells, hand-verified): 159 trees
      * in clumps with grass gaps — northfield thickets, ridge bands behind the
@@ -278,6 +300,13 @@ public final class VillageScene {
     }
 
     public void reset() {
+        inInnInterior = false;
+        if (innkeeper != null) {
+            npcs.remove(innkeeper);
+            if (talkingNpc == innkeeper) talkingNpc = null;
+        }
+        fadePhase = 0;
+        fadeAlpha = 0f;
         col = SPAWN_C;
         row = SPAWN_R;
         facing = Dir.UP;
@@ -294,6 +323,75 @@ public final class VillageScene {
     private void snapRender() {
         renderCx = col * TILE + TILE / 2.0;
         renderCy = row * TILE + TILE / 2.0;
+    }
+
+    /**
+     * Scene change: fade to ROYAL_DEEP black (300 ms), swap mode/spawn while
+     * fully covered, then fade back in. Input stays frozen until phase 0.
+     */
+    private void beginTransition(boolean toInn, int pc, int pr, Dir pf) {
+        if (fadePhase != 0) return;
+        pendingInn = toInn;
+        pendingCol = pc;
+        pendingRow = pr;
+        pendingFacing = pf;
+        fadePhase = 1;
+        fadeAlpha = 0f;
+        stepping = false;
+        walkFrame = 0;
+        animT = 0;
+        doorLatch = false;
+        dialogue.close();
+        talkingNpc = null;
+        message = "";
+        msgTimer = 0;
+    }
+
+    private void updateTransition() {
+        if (fadePhase == 1) {
+            fadeAlpha += 1f / FADE_TICKS;
+            if (fadeAlpha >= 1f) {
+                fadeAlpha = 1f;
+                applyPending();
+                fadePhase = 2;
+            }
+        } else { // phase 2: fade back in
+            fadeAlpha -= 1f / FADE_TICKS;
+            if (fadeAlpha <= 0f) {
+                fadeAlpha = 0f;
+                fadePhase = 0;
+            }
+        }
+    }
+
+    /** Full black: swap the mode, respawn, put doors/villagers back in place. */
+    private void applyPending() {
+        if (pendingInn) {
+            if (innkeeper == null) buildInnInterior();
+            if (!npcs.contains(innkeeper)) npcs.add(innkeeper);
+            inInnInterior = true; // (re)enter even when the layout is already built
+            // Stepping through shuts the door behind you.
+            if (openDoor != null) shutDoor(openDoor);
+            col = pendingCol;
+            row = pendingRow;
+            facing = pendingFacing;
+        } else {
+            inInnInterior = false;
+            if (innkeeper != null) {
+                npcs.remove(innkeeper);
+                if (talkingNpc == innkeeper) talkingNpc = null;
+            }
+            // Stepping through shuts the door behind you.
+            if (openDoor != null) shutDoor(openDoor);
+            col = pendingCol;
+            row = pendingRow;
+            facing = pendingFacing;
+        }
+        stepping = false;
+        walkFrame = 0;
+        animT = 0;
+        preferred = null;
+        snapRender();
     }
 
     private void fillGround(int x0, int y0, int w, int h, Ground g) {
@@ -694,6 +792,50 @@ public final class VillageScene {
         // fill needs them walkable), then prove the shut invariant.
         for (Building b : buildings) solid[b.doorX][b.doorY] = true;
         assertDoorsShut();
+    }
+
+    /** Build the Inn interior map (12x8) - called when entering the Inn */
+    private void buildInnInterior() {
+        innWalls = new int[INN_INT_W][INN_INT_H];
+        innSolid = new boolean[INN_INT_W][INN_INT_H];
+
+        // Perimeter: north wall row 0, south wall row 7 (door gap at col 5), side walls.
+        for (int x = 0; x < INN_INT_W; x++) {
+            innWalls[x][0] = 1;
+            innWalls[x][7] = (x == INN_DOOR_X) ? 4 : 1;
+        }
+        for (int y = 1; y < INN_INT_H - 1; y++) {
+            innWalls[0][y] = 1;
+            innWalls[INN_INT_W - 1][y] = 1;
+        }
+
+        // Counter across the north side (row 2, cols 3-8): solid, white top band.
+        for (int x = 3; x <= 8; x++) innWalls[x][2] = 2;
+
+        // Two red beds against the side walls.
+        innWalls[1][3] = 3;
+        innWalls[1][4] = 3;
+        innWalls[9][3] = 3;
+        innWalls[9][4] = 3;
+
+        // Solidity from the layout (the door cell stays walkable).
+        for (int y = 0; y < INN_INT_H; y++) {
+            for (int x = 0; x < INN_INT_W; x++) {
+                int w = innWalls[x][y];
+                innSolid[x][y] = w == 1 || w == 2 || w == 3;
+            }
+        }
+
+        // Innkeeper stands behind the counter (talk-only, never wanders).
+        innkeeper = new Npc("Innkeeper", 5, 1, GamePalette.ARCANE_BLUE, false,
+                new int[][]{{5, 1}},
+                "Welcome to the Wandering Star Inn. Rest here for 10 gold?",
+                "Rumors say the old well in the village hides a secret.",
+                "The roads south have been dangerous lately. Stay safe.");
+        innkeeper.facing = Dir.DOWN;
+        innSolid[5][1] = true;
+
+        inInnInterior = true;
     }
 
     /** Every door starts shut + solid with a walkable entrance; none open. */
@@ -1212,6 +1354,10 @@ public final class VillageScene {
 
     // ---- 2. Grid movement + key-state input ----
     public void update(InputManager in) {
+        if (fadePhase != 0) { // scene swap in progress: freeze everything
+            updateTransition();
+            return;
+        }
         boolean up = in.isHeld(KeyEvent.VK_W) || in.isHeld(KeyEvent.VK_UP);
         boolean down = in.isHeld(KeyEvent.VK_S) || in.isHeld(KeyEvent.VK_DOWN);
         boolean left = in.isHeld(KeyEvent.VK_A) || in.isHeld(KeyEvent.VK_LEFT);
@@ -1253,7 +1399,7 @@ public final class VillageScene {
                 facing = want; // turn first, move next tick
                 // Turning to face a shut door counts as the opening tap, so
                 // entry is always 2 taps — never turn + bump + step.
-                bumpDoor(col + want.dx, row + want.dy);
+                if (!inInnInterior) bumpDoor(col + want.dx, row + want.dy);
             } else {
                 startStep(want);
             }
@@ -1276,12 +1422,34 @@ public final class VillageScene {
                 if (openDoor != null && (col != openDoor.doorX || row != openDoor.doorY)) {
                     shutDoor(openDoor);
                 }
+                // Cross the threshold: fade into (or out of) the Inn interior.
+                if (inInnInterior) {
+                    if (col == INN_DOOR_X && row == INN_DOOR_Y) {
+                        int ex = SPAWN_C;
+                        int ey = SPAWN_R;
+                        for (Building b : buildings) {
+                            if ("INN".equals(b.name)) {
+                                ex = b.enterX;
+                                ey = b.enterY;
+                            }
+                        }
+                        beginTransition(false, ex, ey, Dir.UP);
+                    }
+                } else if (openDoor != null && "INN".equals(openDoor.name)
+                        && col == openDoor.doorX && row == openDoor.doorY) {
+                    beginTransition(true, INN_SPAWN_X, INN_SPAWN_Y, Dir.DOWN);
+                }
             }
         }
 
         if (in.drainTalkPressed()) interact();
-        trackStuck(want);
-        updateNpcs();
+        if (inInnInterior) {
+            // The innkeeper just holds position; villagers stay outside.
+            updateInnkeeperFace();
+        } else {
+            trackStuck(want);
+            updateNpcs();
+        }
         // Walked away mid-chat: shut the panel so no frozen box lingers.
         if (dialogue.isOpen()) {
             int dc = Math.abs(col - dialogue.speakerCol()) + Math.abs(row - dialogue.speakerRow());
@@ -1309,11 +1477,17 @@ public final class VillageScene {
     private void startStep(Dir d) {
         int tc = col + d.dx;
         int tr = row + d.dy;
-        if (!isInsideMap(tc, tr)) return;
-        if (bumpDoor(tc, tr)) return; // tap 1 opens; tap 2 steps through
-        // The opening press never walks through: release + click again to enter.
-        if (doorLatch && openDoor != null && tc == openDoor.doorX && tr == openDoor.doorY) return;
-        if (solid[tc][tr]) return; // blocked
+        if (inInnInterior) {
+            if (tc < 0 || tr < 0 || tc >= INN_INT_W || tr >= INN_INT_H) return;
+            if (innSolid[tc][tr]) return;
+        } else {
+            if (!isInsideMap(tc, tr)) return;
+            if (bumpDoor(tc, tr)) return; // tap 1 opens; tap 2 steps through
+            // The opening press never walks through: release + click again to enter.
+            if (doorLatch && openDoor != null && tc == openDoor.doorX && tr == openDoor.doorY) return;
+            if (solid[tc][tr]) return; // blocked
+        }
+
         stepping = true;
         fromC = col; fromR = row;
         toC = tc; toR = tr;
@@ -1328,6 +1502,7 @@ public final class VillageScene {
         if (dialogue.isOpen()) {
             String t = dialogue.advance();
             if (t == null) {
+                if (talkingNpc != null) talkingNpc.state = NpcState.IDLE;
                 talkingNpc = null;
                 message = "";
                 msgTimer = 0;
@@ -1335,6 +1510,26 @@ public final class VillageScene {
                 message = t;
                 msgTimer = MSG_TICKS;
             }
+            return;
+        }
+        if (inInnInterior) {
+            int fx = col + facing.dx;
+            int fy = row + facing.dy;
+            // Talk straight to the innkeeper, or across the counter to them.
+            int tx = fx;
+            int ty = fy;
+            if (fx >= 0 && fy >= 0 && fx < INN_INT_W && fy < INN_INT_H
+                    && innWalls[fx][fy] == 2) {
+                tx = fx + facing.dx;
+                ty = fy + facing.dy;
+            }
+            if (innkeeper != null && tx == innkeeper.col && ty == innkeeper.row) {
+                openTalk(innkeeper);
+                return;
+            }
+            talkingNpc = null;
+            message = "The inn is quiet. The innkeeper waits behind the counter.";
+            msgTimer = MSG_TICKS / 2;
             return;
         }
         for (Building b : buildings) {
@@ -1350,22 +1545,33 @@ public final class VillageScene {
         int fy = row + facing.dy;
         for (Npc n : npcs) {
             if (fx == n.col && fy == n.row) {
-                // Face each other, freeze the routine, open the panel.
-                n.state = NpcState.TALKING;
-                n.breaking = false;
-                n.stepping = false;
-                n.snap(); // logical cell already moved at step begin; re-sync render
-                n.facing = dirTo(n.col, n.row, col, row);
-                talkingNpc = n;
-                dialogue.open(n);
-                message = dialogue.advance();
-                msgTimer = MSG_TICKS;
+                openTalk(n);
                 return;
             }
         }
         talkingNpc = null;
         message = "Stand on a doorstep facing the door, then press E.";
         msgTimer = MSG_TICKS / 2;
+    }
+
+    /** Face each other, freeze the routine, open the dialogue panel. */
+    private void openTalk(Npc n) {
+        n.state = NpcState.TALKING;
+        n.breaking = false;
+        n.stepping = false;
+        n.snap(); // logical cell already moved at step begin; re-sync render
+        n.facing = dirTo(n.col, n.row, col, row);
+        talkingNpc = n;
+        dialogue.open(n);
+        message = dialogue.advance();
+        msgTimer = MSG_TICKS;
+    }
+
+    /** Innkeeper tracks the player while the panel is up (no wander logic). */
+    private void updateInnkeeperFace() {
+        if (innkeeper != null && dialogue.isOpen() && talkingNpc == innkeeper) {
+            innkeeper.facing = dirTo(innkeeper.col, innkeeper.row, col, row);
+        }
     }
 
     private static Dir dirTo(int fromC, int fromR, int toC, int toR) {
@@ -1951,6 +2157,11 @@ public final class VillageScene {
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
                 RenderingHints.VALUE_ANTIALIAS_OFF);
         try {
+            if (inInnInterior) {
+                drawInterior(g2, viewW, viewH);
+                drawFade(g2, viewW, viewH);
+                return;
+            }
             int viewTilesW = Math.max(1, (viewW + TILE * SCALE - 1) / (TILE * SCALE));
             int viewTilesH = Math.max(1, (viewH + TILE * SCALE - 1) / (TILE * SCALE));
             updateCamera(viewW, viewH);
@@ -2055,10 +2266,115 @@ public final class VillageScene {
 
             if (debug) drawDebug(g2, offX, offY, viewW, viewH, c0, r0, c1, r1);
             drawHud(g2, viewW, viewH);
+            drawFade(g2, viewW, viewH);
         } finally {
             if (oldInterp != null) g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, oldInterp);
             if (oldAA != null) g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, oldAA);
         }
+    }
+
+    /**
+     * Inn interior render: Layer 1 blue floor, Layer 2 Y-sorted walls/counter/
+     * beds/innkeeper/player (gray walls with white caps, white counter top —
+     * the Y-sort alone puts the counter in front of whoever stands behind it).
+     */
+    private void drawInterior(Graphics2D g2, int viewW, int viewH) {
+        updateCameraInn(viewW, viewH);
+        g2.setColor(GamePalette.ROYAL_DEEP);
+        g2.fillRect(0, 0, viewW, viewH);
+        g2.setClip(0, 0, viewW, viewH);
+        int offX = 0;
+        int offY = 0;
+        int s = TILE * SCALE;
+
+        // Layer 1: floor.
+        for (int r = 0; r < INN_INT_H; r++) {
+            for (int c = 0; c < INN_INT_W; c++) {
+                int x = offX + (c * TILE - camX) * SCALE;
+                int y = offY + (r * TILE - camY) * SCALE;
+                g2.setColor(GamePalette.BLUE_FLOOR);
+                g2.fillRect(x, y, s, s);
+            }
+        }
+
+        // Layer 2: Y-sorted tiles + figures.
+        java.util.TreeMap<Integer, java.util.List<Runnable>> order = new java.util.TreeMap<>();
+        for (int r = 0; r < INN_INT_H; r++) {
+            for (int c = 0; c < INN_INT_W; c++) {
+                int kind = innWalls[c][r];
+                if (kind == 0) continue;
+                final int cc = c;
+                final int rr = r;
+                int baseY = (r + 1) * TILE;
+                order.computeIfAbsent(baseY * 4 + 2, k -> new java.util.ArrayList<>())
+                        .add(() -> drawInnCell(g2, offX, offY, cc, rr, kind));
+            }
+        }
+        if (innkeeper != null) {
+            int baseY = (int) (innkeeper.renderCy + 13);
+            order.computeIfAbsent(baseY * 4 + 3, k -> new java.util.ArrayList<>())
+                    .add(() -> drawNpc(g2, offX, offY, innkeeper));
+        }
+        int playerBase = (int) (renderCy + 13);
+        order.computeIfAbsent(playerBase * 4 + 3, k -> new java.util.ArrayList<>())
+                .add(() -> drawPlayer(g2, offX, offY));
+        for (java.util.List<Runnable> batch : order.values()) {
+            for (Runnable d : batch) d.run();
+        }
+
+        drawHud(g2, viewW, viewH);
+    }
+
+    /** One interior cell: 1=wall, 2=counter, 3=bed, 4=doorway. */
+    private void drawInnCell(Graphics2D g2, int offX, int offY, int c, int r, int kind) {
+        int s = TILE * SCALE;
+        int x = offX + (c * TILE - camX) * SCALE;
+        int y = offY + (r * TILE - camY) * SCALE;
+        switch (kind) {
+            case 1 -> { // wall: gray body, white cap band
+                g2.setColor(GamePalette.GRAY_WALL);
+                g2.fillRect(x, y, s, s);
+                g2.setColor(GamePalette.WHITE_TOP);
+                g2.fillRect(x, y, s, Math.max(4, s / 3));
+            }
+            case 2 -> { // counter: dark face, white top band
+                g2.setColor(GamePalette.DARK_GRAY);
+                g2.fillRect(x, y, s, s);
+                g2.setColor(GamePalette.WHITE_TOP);
+                g2.fillRect(x, y, s, Math.max(4, s * 2 / 5));
+            }
+            case 3 -> { // bed: red mattress, pale pillow at the head
+                g2.setColor(GamePalette.RED_BED);
+                g2.fillRect(x + 1, y, s - 2, s);
+                g2.setColor(GamePalette.PARCHMENT);
+                g2.fillRect(x + 3, y + 2, s - 6, Math.max(4, s / 4));
+            }
+            default -> { // doorway: dark opening in the south wall band
+                g2.setColor(GamePalette.GRAY_WALL);
+                g2.fillRect(x, y, s, s);
+                g2.setColor(GamePalette.ROYAL_DEEP);
+                g2.fillRect(x + s / 4, y + s / 3, s / 2, s * 2 / 3);
+            }
+        }
+    }
+
+    /** The 12x8 room fits the viewport: center it on royal deep letterboxing. */
+    private void updateCameraInn(int viewW, int viewH) {
+        int viewTilesW = (viewW + TILE * SCALE - 1) / (TILE * SCALE);
+        int viewTilesH = (viewH + TILE * SCALE - 1) / (TILE * SCALE);
+        camX = (INN_INT_W - viewTilesW) * TILE / 2;
+        camY = (INN_INT_H - viewTilesH) * TILE / 2;
+    }
+
+    /** Full-screen fade veil for scene changes. */
+    private void drawFade(Graphics2D g2, int viewW, int viewH) {
+        if (fadeAlpha <= 0f) return;
+        java.awt.Composite old = g2.getComposite();
+        g2.setComposite(java.awt.AlphaComposite.getInstance(
+                java.awt.AlphaComposite.SRC_OVER, Math.min(1f, fadeAlpha)));
+        g2.setColor(GamePalette.ROYAL_DEEP);
+        g2.fillRect(0, 0, viewW, viewH);
+        g2.setComposite(old);
     }
 
     private void paintGround(Graphics2D g2, int offX, int offY, int c, int r) {
