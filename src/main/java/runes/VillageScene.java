@@ -2447,14 +2447,14 @@ public final class VillageScene {
     }
 
     private void drawHud(Graphics2D g2, int viewW, int viewH) {
-        if (!message.isEmpty()) {
+        if (dialogue.isOpen() && !message.isEmpty()) {
             int panelW = Math.min(viewW - 40, 760);
             int panelH = 96;
             int px = (viewW - panelW) / 2;
             int py = viewH - panelH - 16;
             int arc = 18;
-            // Body (legendary gold) with royal blue border.
-            g2.setColor(GamePalette.LEGENDARY_GOLD);
+            // Body (parchment) with royal blue border.
+            g2.setColor(GamePalette.PARCHMENT);
             g2.fillRoundRect(px, py, panelW, panelH, arc, arc);
             g2.setColor(GamePalette.ROYAL_BLUE);
             g2.setStroke(new java.awt.BasicStroke(2f));
@@ -2492,13 +2492,16 @@ public final class VillageScene {
             for (int i = 0; i < Math.min(lines.size(), maxLines); i++) {
                 g2.drawString(lines.get(i), textX, ty + i * lineH);
             }
-            if (dialogue.isOpen()) {
-                String hint = dialogue.hint();
-                g2.setFont(new Font("Times New Roman", Font.PLAIN, 12));
-                g2.setColor(GamePalette.ROYAL_BLUE);
-                int hw = g2.getFontMetrics().stringWidth(hint);
-                g2.drawString(hint, px + panelW - hw - 12, py + panelH - 8);
-            }
+            String hint = dialogue.hint();
+            g2.setFont(new Font("Times New Roman", Font.PLAIN, 12));
+            g2.setColor(GamePalette.ROYAL_BLUE);
+            int hw = g2.getFontMetrics().stringWidth(hint);
+            g2.drawString(hint, px + panelW - hw - 12, py + panelH - 8);
+        } else if (!message.isEmpty()) {
+            // Compact plain-text line for non-NPC messages.
+            g2.setColor(GamePalette.ROYAL_DEEP);
+            g2.setFont(new Font("Times New Roman", Font.PLAIN, 13));
+            g2.drawString(message, 24, viewH - 16);
         }
     }
 
