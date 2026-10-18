@@ -2497,11 +2497,6 @@ public final class VillageScene {
             g2.setColor(GamePalette.ROYAL_BLUE);
             int hw = g2.getFontMetrics().stringWidth(hint);
             g2.drawString(hint, px + panelW - hw - 12, py + panelH - 8);
-        } else if (!message.isEmpty()) {
-            // Compact plain-text line for non-NPC messages.
-            g2.setColor(GamePalette.ROYAL_DEEP);
-            g2.setFont(new Font("Times New Roman", Font.PLAIN, 13));
-            g2.drawString(message, 24, viewH - 16);
         }
     }
 
