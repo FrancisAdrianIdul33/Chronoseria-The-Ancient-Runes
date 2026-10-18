@@ -95,8 +95,8 @@ public final class VillageScene {
         {5,30},{6,30},{31,30},
         // South edge singles (row 31).
         {2,31},{23,31},{24,31},{26,31},
-        // South exterior extension (rows 32-34).
-        {12,32},{18,32},{12,33},{18,33},{12,34},{18,34},
+        // South exterior extension (rows 32-34), scattered, clearing the gate corridor.
+        {8,32},{10,33},{22,32},{24,33},{6,34},{26,34},
     };
 
     /** Ground layer tile kinds. */
@@ -638,8 +638,8 @@ public final class VillageScene {
         bush(24, 15); bush(23, 15); bush(24, 16);
         bush(7, 26); bush(8, 26); bush(7, 25);
         bush(20, 23); bush(19, 23); bush(20, 24);
-        // South exterior extension bushes.
-        bush(12, 32); bush(18, 32); bush(15, 33); bush(14, 34); bush(16, 34);
+        // South exterior extension bushes, scattered, clearing the gate corridor.
+        bush(9, 32); bush(21, 33); bush(7, 33); bush(25, 32); bush(5, 34); bush(27, 34);
         // NPCs rehomed to the new regions, each with a home zone.
         npcs.add(new Npc("Amara", 13, 18, VillagePalette.WATER, true,
                 new int[][]{{13, 18}, {18, 18}, {13, 22}, {19, 22}},
