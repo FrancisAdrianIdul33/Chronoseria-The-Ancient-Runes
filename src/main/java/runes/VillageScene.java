@@ -181,7 +181,7 @@ public final class VillageScene {
     private final java.util.List<Building> buildings = new java.util.ArrayList<>();
     private final java.util.List<Npc> npcs = new java.util.ArrayList<>();
     private final java.util.List<int[]> trees = new java.util.ArrayList<>();
-    private final java.util.List<int[]> fences = new java.util.ArrayList<>();
+    private final java.util.List<int[]> treeUppers = new java.util.ArrayList<>();    private final java.util.List<int[]> fences = new java.util.ArrayList<>();
     private final java.util.List<int[]> wallTops = new java.util.ArrayList<>();
     private final java.util.List<int[]> wallBodies = new java.util.ArrayList<>();
     private final java.util.List<int[]> invisibleBounds = new java.util.ArrayList<>();
@@ -564,7 +564,17 @@ public final class VillageScene {
         // Forest map: schematic dark-green cells, single tile each (solid trunk,
         // trunk Y-sorted, canopy overhead). Fixed pattern, same every run.
         for (int[] t : TREES) tree(t[0], t[1]);
-
+        // Upper canopy is a separate cell directly above the base (no overlap).
+        for (int[] t : TREES) {
+            int ux = t[0], uy = t[1] - 1;
+            if (!isInsideMap(ux, uy)) continue;
+            boolean onBase = false;
+            for (int[] b : trees) if (b[0] == ux && b[1] == uy) { onBase = true; break; }
+            if (onBase) continue;
+            boolean dup = false;
+            for (int[] u : treeUppers) if (u[0] == ux && u[1] == uy) { dup = true; break; }
+            if (!dup) treeUppers.add(new int[]{ux, uy});
+        }
         // ---- 5. Buildings: 8 doors, 7 canonical + 1 house, all 3x4 ----
         // Single straight roof row + 2 floors (upper window/plain, ground base + door).
         building("TAVERN", Kind.HOUSE, 7, 6, 3, 4, "Tavern — rumors and drinks over the counter.", true, false, false, 1, 3, 2, 2);
@@ -732,7 +742,9 @@ public final class VillageScene {
         for (int[] t : trees) {
             if (!isInsideMap(t[0], t[1])) throw new IllegalStateException("Tree outside map");
         }
-        for (int[] w : wallTops) {
+        for (int[] t : treeUppers) {
+            if (!isInsideMap(t[0], t[1])) throw new IllegalStateException("Tree upper outside map");
+        }        for (int[] w : wallTops) {
             if (!isInsideMap(w[0], w[1])) throw new IllegalStateException("Wall top outside map");
         }
         for (int[] w : wallBodies) {
@@ -2190,7 +2202,7 @@ public final class VillageScene {
     /** Layer 3 tree canopy pass: draws only canopy tops after the player. */
     private void drawTreeCanopyPass(Graphics2D g2, int offX, int offY,
                                     int c0, int r0, int c1, int r1) {
-        for (int[] t : trees) {
+        for (int[] t : treeUppers) {
             if (t[0] < c0 - 1 || t[0] > c1 + 1 || t[1] < r0 - 1 || t[1] > r1 + 1) continue;
             drawTreeCanopy(g2, offX, offY, t[0], t[1]);
         }
