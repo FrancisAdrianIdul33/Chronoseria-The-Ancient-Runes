@@ -122,8 +122,8 @@ sampling in build tooling — never hand-transcribed).
   19-23); 1 free cell around every entrance; never touching a building front
   (south) row; NPC spawns clear (4 villager haunts overlap trunks and are
   skipped by `pickHaunt`). ~28% forested by schematic count; fences (17 orange
-  cells) and wells (`(2,8)`, `(2,21)`) stay deferred as walkable grass, so the
-  fence-gap rule is dormant until fence art lands.
+  cells) and the well (`(2,8)`) are now wired up (see sections 5/11); the
+  fence-gap rule is active.
 - Fountain plaza: `3x3` cobble `PATH` at cols `15-17`, rows `20-22` (all walkable
   except center). Base `(16,21)` = `fountain_base.png`, Layer 2 Y-sorted, `solid`.
   Upper `(16,20)` = `fountain_upper.png`, Layer 3 overhead after player, walkable
@@ -301,8 +301,8 @@ sampling in build tooling — never hand-transcribed).
     - Never on a path, bridge, door, entrance, fence, water, or plaza edge.
     - Keep 1 free cell around every entrance. Keep 1 cell gap from building
       fronts (south side). Trees behind and beside buildings are allowed.
-    - Fence-gap rule is dormant until fence art lands (fences render as
-      walkable grass; schematic adjacencies stand).
+    - Fence-gap rule is active: 17 fence cells (orange) are now solid fences;
+      schematic adjacencies stand.
     - Trees are solid single tiles (`tree()` trunk cell). Y-sort: trunk with
       entities Layer 2, canopy drawn in front Layer 3 in the cell directly
       above the base (separate cell; overlays the base of the tree above when
@@ -310,3 +310,65 @@ sampling in build tooling — never hand-transcribed).
     - After placing, run a flood fill from spawn: every `PATH`/`GATE` cell and
       every entrance must stay reachable. If not, remove the blocking tree —
       never weaken the assert.
+
+## 11. Current village asset placement (build snapshot)
+
+Counts: 159 trees (+149 upper-canopy cells), 17 fences, 1 well at `(2,8)`,
+18 bushes, 8 buildings, 5 NPCs, 4 bridges, 1 fountain (base+upper), 2 sewers,
+115 wall tops, 59 wall bricks.
+
+Fences (solid): (4,21),(5,21),(6,21),(7,11),(8,11),(12,11),(13,11),(14,19),
+(15,19),(16,19),(16,28),(17,25),(17,28),(22,11),(23,11),(26,21),(27,21).
+
+Well (solid): (2,8).
+
+Bushes (solid clumps): (3,0),(4,0); (10,0),(10,1); (24,0),(25,0);
+(6,6),(6,7); (18,13),(18,14); (24,15),(23,15),(24,16); (7,26),(8,26),(7,25);
+(20,23),(19,23),(20,24).
+
+Sewers: (15,4) north, (23,24) south. Bridges: (15,10),(4,12),(17,16),(23,20).
+Fountain: base (16,21), upper (16,20). Spawn: (16,26). Gate: (15,30)-(15,31).
+
+Tree upper canopy is drawn in the cell directly above each tree base; when that
+cell is itself a tree base (vertical adjacency) the canopy overlays it.
+
+Full map (one char per tile; see legend in `VillageScene.printMap()` output):
+
+```text
+TTTbb....Tb....~.....TTTbb.TTT..
+TTTT...T..bTT..~.TTT...TT.....T.
+...TTTT........~...T.......T..TT
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WwwwwwwwwwwwwwwSwwwwwwwwwwwwwwwW
+WTTTTTT......TT~......TTTTTTTTTW
+WTTTTTbVVV..EEE~...TTTTTTTTTTTTW
+WTTT.NbVVV..EEE~......N...TTTTTW
+WTO....VVVT.EEE~T..WWW...iii.TTW
+WT.....VDVT.EDE~TT.WWW.TTiii..TW
+W...ppppdppppdp=ppTWWW...iii..TW
+W...p..ff...ff.~.pTWDWff.iDi...W
+W~~~=~~~~~~~~~~~.pppdpppppdppppW
+WHHHpTTTTT.....~Npb...........pW
+WHHHp..TTTT....~.pb.TT....T...pW
+WHHHp..........~.p.TTT.bb.....pW
+WHDHp.MMM......~~=~~~~~~b.UUU.pW
+W.d.p.MMMT.......p.....~..UUU.pW
+W...p.MMM....N...p....T~..UUUTpW
+W...p.MDM...T.fffp.....~.TUDUTpW
+WT..pppdppppppppUpppppp=pppdpppW
+WT..fff...pTT..pFp.....~..ff...W
+WTT.......p....ppp.T...~.TTTTTTW
+WWWWWWWWWWp.IIIp...bbWWWWWWWWWWW
+wwwwwwwwwWp.IIIp....bWwSwwwwwwww
+..TT...b.WpTIIIp.f...W.~..TT....
+...TTTTbbWpTIDIpT...TW.~..T....T
+.........Wpppdpp....TW.~....T...
+TT......TWT..N.pff.TTW.~.......T
+.TT..T...WTTTP.p....TW.~~~~~~~..
+.....TT..WWWWWWGWWWWWW.......~.T
+..T......wwwwwwGwwwwww.TT.T..~..
+```
+
+Legend: `.` grass, `p` path, `G` gate, `~` water, `T` tree, `F` fountain base,
+`U` fountain upper, `W` wall top, `w` wall brick, `S` sewer, `f` fence, `b` bush,
+`O` well, `=` bridge, letters for buildings/NPCs/spawn.

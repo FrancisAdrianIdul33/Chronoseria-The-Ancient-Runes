@@ -2499,6 +2499,8 @@ public final class VillageScene {
         for (int[] sw : sewers) pic[sw[1]][sw[0]] = 'S';
         for (int[] b : bridges) pic[b[1]][b[0]] = '=';
         for (int[] w : wells) pic[w[1]][w[0]] = 'O';
+        for (int[] f : fences) if (pic[f[1]][f[0]] == '.' || pic[f[1]][f[0]] == 'p') pic[f[1]][f[0]] = 'f';
+        for (int[] b : bushes) if (pic[b[1]][b[0]] == '.' || pic[b[1]][b[0]] == 'p') pic[b[1]][b[0]] = 'b';
         for (int[] w : invisibleBounds) {
             if (pic[w[1]][w[0]] == '.' || pic[w[1]][w[0]] == 'p'
                     || pic[w[1]][w[0]] == 'r' || pic[w[1]][w[0]] == 's') {
@@ -2511,7 +2513,7 @@ public final class VillageScene {
         for (int y = 0; y < MAP_H; y++) {
             System.out.println(String.valueOf(pic[y]));
         }
-        System.out.println("Legend: .=grass p=path G=gate ~=water T=tree F=fountain-base U=fountain-upper W=wallTop w=wallBrick S=sewer ==bridge x=invisibleBound");
+        System.out.println("Legend: .=grass p=path G=gate ~=water T=tree F=fountain-base U=fountain-upper W=wallTop w=wallBrick S=sewer f=fence b=bush O=well ==bridge x=invisibleBound");
         System.out.println("I=inn V=tavern E=mentor W=blacksmith i=market H=house M=wizard U=sanctuary D=door d=entrance N=npc P=spawn");
         int treeCount = trees.size();
         System.out.println("Trees: " + treeCount + " WallTops: " + wallTops.size()
