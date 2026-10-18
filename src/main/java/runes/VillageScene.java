@@ -625,7 +625,7 @@ public final class VillageScene {
         fence(16, 28); fence(17, 25); fence(17, 28);
         fence(22, 11); fence(23, 11);
         fence(26, 21); fence(27, 21);
-        well(2, 8);        // Bushes: 8 on free grass cells away from doors/entrances/walls.
+        well(2, 8);        // Bushes: 8 on free grass cells away from doors/entrances/walls (outside).
         int bushesPlaced = 0;
         outer:
         for (int by = 0; by < MAP_H && bushesPlaced < 8; by++) {
@@ -638,7 +638,6 @@ public final class VillageScene {
                 }
                 if (nearDoor) continue;
                 if (bx == 0 || by == 0 || bx == MAP_W - 1 || by == MAP_H - 1) continue;
-                // avoid walls
                 if (isInsideMap(bx, by - 1) && wallMask[bx][by - 1]) continue;
                 if (isInsideMap(bx, by + 1) && wallMask[bx][by + 1]) continue;
                 if (isInsideMap(bx - 1, by) && wallMask[bx - 1][by]) continue;
@@ -647,7 +646,26 @@ public final class VillageScene {
                 bushesPlaced++;
             }
         }
-        // NPCs rehomed to the new regions, each with a home zone.
+        // Bushes: 8 more inside the village (below the top wall band).
+        int bushesInside = 0;
+        inner:
+        for (int by = 5; by < MAP_H && bushesInside < 8; by++) {
+            for (int bx = 1; bx < MAP_W - 1 && bushesInside < 8; bx++) {
+                if (ground[bx][by] != Ground.GRASS || solid[bx][by]) continue;
+                boolean nearDoor = false;
+                for (Building b : buildings) {
+                    if (Math.abs(bx - b.doorX) <= 1 && Math.abs(by - b.doorY) <= 1) { nearDoor = true; break; }
+                    if (Math.abs(bx - b.enterX) <= 1 && Math.abs(by - b.enterY) <= 1) { nearDoor = true; break; }
+                }
+                if (nearDoor) continue;
+                if (isInsideMap(bx, by - 1) && wallMask[bx][by - 1]) continue;
+                if (isInsideMap(bx, by + 1) && wallMask[bx][by + 1]) continue;
+                if (isInsideMap(bx - 1, by) && wallMask[bx - 1][by]) continue;
+                if (isInsideMap(bx + 1, by) && wallMask[bx + 1][by]) continue;
+                bush(bx, by);
+                bushesInside++;
+            }
+        }        // NPCs rehomed to the new regions, each with a home zone.
         npcs.add(new Npc("Amara", 13, 18, VillagePalette.WATER, true,
                 new int[][]{{13, 18}, {18, 18}, {13, 22}, {19, 22}},
                 "Amara: \"Good day! The village is peaceful today.\"",
