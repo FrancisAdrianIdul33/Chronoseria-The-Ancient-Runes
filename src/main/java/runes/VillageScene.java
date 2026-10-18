@@ -21,7 +21,7 @@ public final class VillageScene {
     // ---- 14. Constants in one place ----
     static final int TILE = 16;
     static final int MAP_W = 32;
-    static final int MAP_H = 32;
+    static final int MAP_H = 35;
     static final int WORLD_W = MAP_W * TILE;
     static final int WORLD_H = MAP_H * TILE;
     static final int VIEW_TX = 20;
@@ -377,8 +377,8 @@ public final class VillageScene {
         // Corners come from the stem mask; middle skips the gate.
         for (int x = 10; x <= 20; x++) {
             if (x != 15) {
-                wall(x, MAP_H - 2);
-                wall(x, MAP_H - 1);
+                wall(x, 30);
+                wall(x, 31);
             }
         }
     }
@@ -912,7 +912,7 @@ public final class VillageScene {
             }
             boolean topRow = sw[1] == 4 && sw[0] >= 1 && sw[0] <= MAP_W - 2;
             boolean bottomBand = sw[1] == 24 && ((sw[0] <= 8) || (sw[0] >= 22));
-            boolean frontRow = sw[1] == MAP_H - 1 && sw[0] >= 9 && sw[0] <= 21 && sw[0] != 15;
+            boolean frontRow = sw[1] == 31 && sw[0] >= 9 && sw[0] <= 21 && sw[0] != 15;
             if (!topRow && !bottomBand && !frontRow) {
                 throw new IllegalStateException("sewer off brick row at " + sw[0] + "," + sw[1]);
             }
@@ -1006,13 +1006,13 @@ public final class VillageScene {
         // Sewers (if any) replace a brick with cap above; validated separately.
         for (int x = 9; x <= 21; x++) {
             if (x == 15) continue;
-            if (isSewer(x, MAP_H - 1)) {
-                if (!containsCell(wallTops, x, MAP_H - 2)) {
+            if (isSewer(x, 31)) {
+                if (!containsCell(wallTops, x, 30)) {
                     throw new IllegalStateException("front sewer cap gap at x=" + x);
                 }
                 continue;
             }
-            if (!containsCell(wallTops, x, MAP_H - 2) || !containsCell(wallBodies, x, MAP_H - 1)) {
+            if (!containsCell(wallTops, x, 30) || !containsCell(wallBodies, x, 31)) {
                 throw new IllegalStateException("front wall gap at x=" + x);
             }
         }
@@ -1020,7 +1020,7 @@ public final class VillageScene {
         for (int[] w : wallBodies) {
             boolean topRow = w[1] == 4 && w[0] >= 1 && w[0] <= MAP_W - 2;
             boolean bottomBand = w[1] == 24 && ((w[0] <= 8) || (w[0] >= 22));
-            boolean frontRow = w[1] == MAP_H - 1 && w[0] >= 9 && w[0] <= 21;
+            boolean frontRow = w[1] == 31 && w[0] >= 9 && w[0] <= 21;
             if (!topRow && !bottomBand && !frontRow) {
                 throw new IllegalStateException("brick face violated at " + w[0] + "," + w[1]);
             }
@@ -2509,7 +2509,7 @@ public final class VillageScene {
         }
         for (Npc n : npcs) pic[n.row][n.col] = 'N';
         pic[SPAWN_R][SPAWN_C] = 'P';
-        System.out.println("MAP 32x32 (col 0..31):");
+        System.out.println("MAP " + MAP_W + "x" + MAP_H + " (col 0.." + (MAP_W - 1) + "):");
         for (int y = 0; y < MAP_H; y++) {
             System.out.println(String.valueOf(pic[y]));
         }
