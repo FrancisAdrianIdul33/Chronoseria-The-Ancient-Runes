@@ -16,6 +16,7 @@ public final class Main {
             // Keep the 800x600 game area centered and unscaled (letterboxed) in fullscreen.
             javax.swing.JPanel root = new javax.swing.JPanel(new java.awt.GridBagLayout());
             root.setBackground(java.awt.Color.BLACK);
+            root.setPreferredSize(new java.awt.Dimension(800, 600));
             root.add(panel, new java.awt.GridBagConstraints());
             frame.setContentPane(root);
             InputManager input = new InputManager(panel);
@@ -23,7 +24,7 @@ public final class Main {
             panel.addMouseListener(input.mouse());
             frame.addMouseMotionListener(input.mouse());
             panel.attachInput(input);
-            frame.setSize(800, 600);
+            frame.pack();
             frame.setLocationRelativeTo(null);
             frame.setVisible(true);
             panel.requestFocusInWindow();
