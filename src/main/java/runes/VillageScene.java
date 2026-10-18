@@ -1950,10 +1950,10 @@ public final class VillageScene {
             int offX = 0;
             int offY = 0;
 
-            int c0 = Math.max(0, camX / TILE);
-            int r0 = Math.max(0, camY / TILE);
-            int c1 = Math.min(MAP_W - 1, c0 + viewTilesW - 1);
-            int r1 = Math.min(MAP_H - 1, r0 + viewTilesH - 1);
+            int c0 = 0;
+            int r0 = 0;
+            int c1 = MAP_W - 1;
+            int r1 = MAP_H - 1;
 
             // Ground sprites only (cobble carries its own edging; no edge lines).
             for (int r = r0; r <= r1; r++) {
