@@ -112,8 +112,10 @@ sampling in build tooling — never hand-transcribed).
 - Trees: 159 forest cells from the locked schematic dark-green layer
   (`assets/new-village-map.png` `#116D18`, cell-center sampled), stamped via
   `tree()` (`TREES` fixed array, same map every run, no RNG): solid trunk,
-  trunk Y-sorted Layer 2, canopy overhead Layer 3 (`tree_base.png`/`tree_upper.png`). Clumps
-  of 2-5 with grass gaps: northfield thickets (rows 0-2), ridge bands behind
+  trunk Y-sorted Layer 2, canopy overhead Layer 3 (`tree_base.png`/`tree_upper.png`).
+  The upper canopy is a separate cell directly above the base (no overlap of the
+  two images in one cell); when that cell is itself a tree base (vertical
+  adjacency), the canopy overlays that base. Clumps  of 2-5 with grass gaps: northfield thickets (rows 0-2), ridge bands behind
   the north buildings (rows 5-7), west ridge slivers, corner/dead-space fills,
   south exterior woods; singles frame lanes/plaza/gate. Never on paths,
   bridges, doors, entrances, water, or the plaza margin (cols 14-18, rows
@@ -134,9 +136,16 @@ sampling in build tooling — never hand-transcribed).
   ccc
   ```
   Center `5` of the `3x3` is the solid base; the cell above it is the walkable upper.
-- Fences: 17 orange cells on the schematic — deferred (no fence art in `assets/`);
-  those cells stay walkable grass. Wire them up when art lands.
-- Wells: `(2,8)`, `(2,21)` dark-grey singles — deferred like fences; walkable grass.
+- Fences: 17 orange cells on the schematic, wired with `fence.png`
+  (`assets/fence.png`, `src/main/resources/assets/tiles/fence.png`): cells
+  (4,21),(5,21),(6,21),(7,11),(8,11),(12,11),(13,11),(14,19),(15,19),
+  (16,19),(16,28),(17,25),(17,28),(22,11),(23,11),(26,21),(27,21); solid
+  blockers on grass.
+- Wells: `(2,8)`, `(2,21)` dark-grey singles, wired with `well.png`
+  (`assets/well.png`, `src/main/resources/assets/tiles/well.png`); solid.
+- Bushes: 8 on free grass cells away from doors/entrances/walls, wired with
+  `bush.png` (`assets/bush.png`,
+  `src/main/resources/assets/tiles/bush.png`); solid grass props.
 
 ## 6. Buildings and doors
 
@@ -228,8 +237,7 @@ sampling in build tooling — never hand-transcribed).
 | Sewer grate | 2 (+3 strip with `sewerTile`) | Impassable | Replaces brick at river crossings `(15,4)` + `(23,24)`, cap above |
 | Invisible bound | — | Impassable | Reserved; none currently placed (south is now visible wall) |
 | Tree trunk | 2 | Impassable | Base cell blocks (159 forest cells) |
-| Tree canopy | 3 | Passable overlay | Visual only, covers head behind tree |
-| Building body/door frame | 2 | Impassable | Door cell itself walkable |
+| Tree canopy | 3 | Passable overlay | Visual only, separate cell above base; overlays base of tree above in vertical adjacency || Building body/door frame | 2 | Impassable | Door cell itself walkable |
 | Roof | 3 | Overlay | Covers player walking behind |
 | Fountain base | 2 | Impassable | `(16,21)` on `3x3` cobble plaza, `fountain_base.png`, Y-sorted |
 | Fountain upper | 3 | Passable overlay | `(16,20)` transparent, `fountain_upper.png` via `drawFountainUpperPass()`, player goes behind |
@@ -296,7 +304,9 @@ sampling in build tooling — never hand-transcribed).
     - Fence-gap rule is dormant until fence art lands (fences render as
       walkable grass; schematic adjacencies stand).
     - Trees are solid single tiles (`tree()` trunk cell). Y-sort: trunk with
-      entities Layer 2, canopy drawn in front Layer 3.
+      entities Layer 2, canopy drawn in front Layer 3 in the cell directly
+      above the base (separate cell; overlays the base of the tree above when
+      vertically adjacent).
     - After placing, run a flood fill from spawn: every `PATH`/`GATE` cell and
       every entrance must stay reachable. If not, remove the blocking tree —
       never weaken the assert.

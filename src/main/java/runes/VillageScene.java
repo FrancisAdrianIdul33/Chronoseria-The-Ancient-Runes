@@ -187,7 +187,7 @@ public final class VillageScene {
     private final java.util.List<int[]> invisibleBounds = new java.util.ArrayList<>();
     private final java.util.List<int[]> bridges = new java.util.ArrayList<>();
     private final java.util.List<int[]> wells = new java.util.ArrayList<>();
-    private final java.util.List<int[]> fountains = new java.util.ArrayList<>();
+    private final java.util.List<int[]> bushes = new java.util.ArrayList<>();    private final java.util.List<int[]> fountains = new java.util.ArrayList<>();
 
     // ---- Tile sprites (32x32 source art, drawn 1:1 to a scaled cell) ----
     private BufferedImage grassTile;
@@ -195,6 +195,9 @@ public final class VillageScene {
     private BufferedImage wallTopTile;
     private BufferedImage treeBaseTile;
     private BufferedImage treeUpperTile;
+    private BufferedImage fenceTile;
+    private BufferedImage wellTile;
+    private BufferedImage bushTile;
     private BufferedImage waterTile;
     private BufferedImage pathTile;
     private BufferedImage houseRoof;
@@ -406,6 +409,9 @@ public final class VillageScene {
         wallTopTile = requireTile("/assets/tiles/wall_top.png");
         treeBaseTile = requireTile("/assets/tiles/tree_base.png");
         treeUpperTile = requireTile("/assets/tiles/tree_upper.png");
+        fenceTile = requireTile("/assets/tiles/fence.png");
+        wellTile = requireTile("/assets/tiles/well.png");
+        bushTile = requireTile("/assets/tiles/bush.png");
         waterTile = requireTile("/assets/tiles/water.png");
         pathTile = requireTile("/assets/tiles/path.png");
         houseRoof = requireTile("/assets/tiles/house_roof.png");
@@ -440,6 +446,19 @@ public final class VillageScene {
     /** Stone well: 1x1 solid prop drawn with a dark mouth + rim. */
     private void well(int c, int r) {
         wells.add(new int[]{c, r});
+        solid[c][r] = true;
+        // Keep GRASS underneath so the grass tile still shows at seams.
+    }
+
+    /** Fence: 1x1 solid blocker. */
+    private void fence(int c, int r) {
+        fences.add(new int[]{c, r});
+        solid[c][r] = true;
+    }
+
+    /** Bush: 1x1 solid grass prop. */
+    private void bush(int c, int r) {
+        bushes.add(new int[]{c, r});
         solid[c][r] = true;
     }
 
@@ -564,13 +583,11 @@ public final class VillageScene {
         // Forest map: schematic dark-green cells, single tile each (solid trunk,
         // trunk Y-sorted, canopy overhead). Fixed pattern, same every run.
         for (int[] t : TREES) tree(t[0], t[1]);
-        // Upper canopy is a separate cell directly above the base (no overlap).
+        // Upper canopy is a separate cell directly above the base. When that cell
+        // is itself a tree base (vertical adjacency), the canopy overlays it.
         for (int[] t : TREES) {
             int ux = t[0], uy = t[1] - 1;
             if (!isInsideMap(ux, uy)) continue;
-            boolean onBase = false;
-            for (int[] b : trees) if (b[0] == ux && b[1] == uy) { onBase = true; break; }
-            if (onBase) continue;
             boolean dup = false;
             for (int[] u : treeUppers) if (u[0] == ux && u[1] == uy) { dup = true; break; }
             if (!dup) treeUppers.add(new int[]{ux, uy});
@@ -600,9 +617,37 @@ public final class VillageScene {
         sewer(15, 4);
         // River passes under the bottom band at x23: same pattern at (23,23-24).
         sewer(23, 24);
-        // No trees on this map (all greens are grass checker); no fences/wells yet
-        // (deferred cells stay walkable grass).
-
+        // Fences (orange cells) and wells (dark-grey cells) from the schematic.
+        fence(4, 21); fence(5, 21); fence(6, 21);
+        fence(7, 11); fence(8, 11);
+        fence(12, 11); fence(13, 11);
+        fence(14, 19); fence(15, 19); fence(16, 19);
+        fence(16, 28); fence(17, 25); fence(17, 28);
+        fence(22, 11); fence(23, 11);
+        fence(26, 21); fence(27, 21);
+        well(2, 8); well(2, 21);
+        // Bushes: 8 on free grass cells away from doors/entrances/walls.
+        int bushesPlaced = 0;
+        outer:
+        for (int by = 0; by < MAP_H && bushesPlaced < 8; by++) {
+            for (int bx = 0; bx < MAP_W && bushesPlaced < 8; bx++) {
+                if (ground[bx][by] != Ground.GRASS || solid[bx][by]) continue;
+                boolean nearDoor = false;
+                for (Building b : buildings) {
+                    if (Math.abs(bx - b.doorX) <= 1 && Math.abs(by - b.doorY) <= 1) { nearDoor = true; break; }
+                    if (Math.abs(bx - b.enterX) <= 1 && Math.abs(by - b.enterY) <= 1) { nearDoor = true; break; }
+                }
+                if (nearDoor) continue;
+                if (bx == 0 || by == 0 || bx == MAP_W - 1 || by == MAP_H - 1) continue;
+                // avoid walls
+                if (isInsideMap(bx, by - 1) && wallMask[bx][by - 1]) continue;
+                if (isInsideMap(bx, by + 1) && wallMask[bx][by + 1]) continue;
+                if (isInsideMap(bx - 1, by) && wallMask[bx - 1][by]) continue;
+                if (isInsideMap(bx + 1, by) && wallMask[bx + 1][by]) continue;
+                bush(bx, by);
+                bushesPlaced++;
+            }
+        }
         // NPCs rehomed to the new regions, each with a home zone.
         npcs.add(new Npc("Amara", 13, 18, VillagePalette.WATER, true,
                 new int[][]{{13, 18}, {18, 18}, {13, 22}, {19, 22}},
@@ -739,12 +784,22 @@ public final class VillageScene {
                 throw new IllegalStateException("Building outside map: " + b.name);
             }
         }
-        for (int[] t : trees) {
+                for (int[] t : trees) {
             if (!isInsideMap(t[0], t[1])) throw new IllegalStateException("Tree outside map");
         }
         for (int[] t : treeUppers) {
             if (!isInsideMap(t[0], t[1])) throw new IllegalStateException("Tree upper outside map");
-        }        for (int[] w : wallTops) {
+        }
+        for (int[] f : fences) {
+            if (!isInsideMap(f[0], f[1])) throw new IllegalStateException("Fence outside map");
+        }
+        for (int[] w : wells) {
+            if (!isInsideMap(w[0], w[1])) throw new IllegalStateException("Well outside map");
+        }
+        for (int[] b : bushes) {
+            if (!isInsideMap(b[0], b[1])) throw new IllegalStateException("Bush outside map");
+        }
+        for (int[] w : wallTops) {
             if (!isInsideMap(w[0], w[1])) throw new IllegalStateException("Wall top outside map");
         }
         for (int[] w : wallBodies) {
@@ -808,6 +863,8 @@ public final class VillageScene {
             }
         }
         for (int[] f : fences) assertNotOnPath(f[0], f[1], "fence");
+        for (int[] w : wells) assertNotOnPath(w[0], w[1], "well");
+        for (int[] b : bushes) assertNotOnPath(b[0], b[1], "bush");
         for (Npc n : npcs) assertNotOnPath(n.col, n.row, "npc " + n.name);
         assertContainedInWalls();
     }
@@ -828,6 +885,8 @@ public final class VillageScene {
         }
         for (int[] t : trees) assertNotOnWall(t[0], t[1], "tree");
         for (int[] f : fences) assertNotOnWall(f[0], f[1], "fence");
+        for (int[] w : wells) assertNotOnWall(w[0], w[1], "well");
+        for (int[] b : bushes) assertNotOnWall(b[0], b[1], "bush");
         for (int[] f : fountains) assertNotOnWall(f[0], f[1], "fountain base");
         for (int[] f : fountainUppers) assertNotOnWall(f[0], f[1], "fountain upper");
         for (Npc n : npcs) assertNotOnWall(n.col, n.row, "npc " + n.name);
@@ -1947,6 +2006,24 @@ public final class VillageScene {
                 order.computeIfAbsent(baseY * 4 + 2, k -> new java.util.ArrayList<>())
                         .add(() -> drawTreeTrunk(g2, offX, offY, t[0], t[1]));
             }
+            for (int[] f : fences) {
+                if (f[0] < c0 - 1 || f[0] > c1 + 1 || f[1] < r0 - 1 || f[1] > r1 + 1) continue;
+                int baseY = (f[1] + 1) * TILE;
+                order.computeIfAbsent(baseY * 4 + 2, k -> new java.util.ArrayList<>())
+                        .add(() -> drawFence(g2, offX, offY, f[0], f[1]));
+            }
+            for (int[] w : wells) {
+                if (w[0] < c0 - 1 || w[0] > c1 + 1 || w[1] < r0 - 1 || w[1] > r1 + 1) continue;
+                int baseY = (w[1] + 1) * TILE;
+                order.computeIfAbsent(baseY * 4 + 2, k -> new java.util.ArrayList<>())
+                        .add(() -> drawWell(g2, offX, offY, w[0], w[1]));
+            }
+            for (int[] b : bushes) {
+                if (b[0] < c0 - 1 || b[0] > c1 + 1 || b[1] < r0 - 1 || b[1] > r1 + 1) continue;
+                int baseY = (b[1] + 1) * TILE;
+                order.computeIfAbsent(baseY * 4 + 2, k -> new java.util.ArrayList<>())
+                        .add(() -> drawBush(g2, offX, offY, b[0], b[1]));
+            }
             for (int[] f : fountains) {
                 if (f[0] < c0 - 1 || f[0] > c1 + 1 || f[1] < r0 - 1 || f[1] > r1 + 1) continue;
                 int baseY = (f[1] + 1) * TILE;
@@ -2123,6 +2200,30 @@ public final class VillageScene {
         int x = offX + (c * TILE - camX) * SCALE;
         int y = offY + (r * TILE - camY) * SCALE;
         g2.drawImage(treeBaseTile, x, y, s, s, null);
+    }
+
+    private void drawFence(Graphics2D g2, int offX, int offY, int c, int r) {
+        ensureSprites();
+        int s = TILE * SCALE;
+        int x = offX + (c * TILE - camX) * SCALE;
+        int y = offY + (r * TILE - camY) * SCALE;
+        g2.drawImage(fenceTile, x, y, s, s, null);
+    }
+
+    private void drawWell(Graphics2D g2, int offX, int offY, int c, int r) {
+        ensureSprites();
+        int s = TILE * SCALE;
+        int x = offX + (c * TILE - camX) * SCALE;
+        int y = offY + (r * TILE - camY) * SCALE;
+        g2.drawImage(wellTile, x, y, s, s, null);
+    }
+
+    private void drawBush(Graphics2D g2, int offX, int offY, int c, int r) {
+        ensureSprites();
+        int s = TILE * SCALE;
+        int x = offX + (c * TILE - camX) * SCALE;
+        int y = offY + (r * TILE - camY) * SCALE;
+        g2.drawImage(bushTile, x, y, s, s, null);
     }
 
     /** Layer 3 canopy: PASSABLE visual overlay, drawn after the player. */
