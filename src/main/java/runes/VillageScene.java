@@ -1917,8 +1917,8 @@ public final class VillageScene {
 
     // ---- 3. Camera ----
     private void updateCamera(int viewW, int viewH) {
-        int viewTilesW = viewW / (TILE * SCALE);
-        int viewTilesH = viewH / (TILE * SCALE);
+        int viewTilesW = (viewW + TILE * SCALE - 1) / (TILE * SCALE);
+        int viewTilesH = (viewH + TILE * SCALE - 1) / (TILE * SCALE);
         if (MAP_W <= viewTilesW) camX = (WORLD_W - viewTilesW * TILE) / 2;
         else camX = (int) Math.round(clamp(renderCx - viewTilesW * TILE / 2.0, 0, WORLD_W - viewTilesW * TILE));
         if (MAP_H <= viewTilesH) camY = (WORLD_H - viewTilesH * TILE) / 2;
@@ -1938,12 +1938,14 @@ public final class VillageScene {
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
                 RenderingHints.VALUE_ANTIALIAS_OFF);
         try {
-            int viewTilesW = Math.max(1, viewW / (TILE * SCALE));
-            int viewTilesH = Math.max(1, viewH / (TILE * SCALE));
+            int viewTilesW = Math.max(1, (viewW + TILE * SCALE - 1) / (TILE * SCALE));
+            int viewTilesH = Math.max(1, (viewH + TILE * SCALE - 1) / (TILE * SCALE));
             updateCamera(viewW, viewH);
 
             g2.setColor(GamePalette.ROYAL_DEEP);
             g2.fillRect(0, 0, viewW, viewH);
+            java.awt.Shape oldClip = g2.getClip();
+            g2.setClip(0, 0, viewW, viewH);
 
             int offX = 0;
             int offY = 0;
