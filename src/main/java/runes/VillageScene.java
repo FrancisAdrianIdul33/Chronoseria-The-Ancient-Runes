@@ -1938,17 +1938,19 @@ public final class VillageScene {
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
                 RenderingHints.VALUE_ANTIALIAS_OFF);
         try {
-            updateCamera(viewW, viewH);
-            int offX = (viewW - VIEW_TX * TILE * SCALE) / 2;
-            int offY = (viewH - VIEW_TY * TILE * SCALE) / 2;
+            int vpW = VIEW_TX * TILE * SCALE;
+            int vpH = VIEW_TY * TILE * SCALE;
+            updateCamera(vpW, vpH);
+            int offX = (viewW - vpW) / 2;
+            int offY = (viewH - vpH) / 2;
 
             g2.setColor(GamePalette.ROYAL_DEEP);
             g2.fillRect(0, 0, viewW, viewH);
 
             int c0 = Math.max(0, camX / TILE);
             int r0 = Math.max(0, camY / TILE);
-            int c1 = Math.min(MAP_W - 1, (camX + VIEW_TX * TILE) / TILE + 1);
-            int r1 = Math.min(MAP_H - 1, (camY + VIEW_TY * TILE) / TILE + 1);
+            int c1 = Math.min(MAP_W - 1, c0 + VIEW_TX - 1);
+            int r1 = Math.min(MAP_H - 1, r0 + VIEW_TY - 1);
 
             // Ground sprites only (cobble carries its own edging; no edge lines).
             for (int r = r0; r <= r1; r++) {
