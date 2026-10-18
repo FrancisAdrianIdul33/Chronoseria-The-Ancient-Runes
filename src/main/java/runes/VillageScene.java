@@ -640,6 +640,13 @@ public final class VillageScene {
         bush(20, 23); bush(19, 23); bush(20, 24);
         // South exterior extension bushes, scattered, clearing the gate corridor.
         bush(9, 32); bush(21, 33); bush(7, 33); bush(25, 32); bush(5, 34); bush(27, 34);
+        // Make the entire south exterior extension solid (collision) so the player
+        // cannot pass; transition to other areas is deferred.
+        for (int y = 32; y <= 34; y++) {
+            for (int x = 0; x < MAP_W; x++) {
+                invisibleBound(x, y);
+            }
+        }
         // NPCs rehomed to the new regions, each with a home zone.
         npcs.add(new Npc("Amara", 13, 18, VillagePalette.WATER, true,
                 new int[][]{{13, 18}, {18, 18}, {13, 22}, {19, 22}},
