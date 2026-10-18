@@ -1938,25 +1938,20 @@ public final class VillageScene {
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
                 RenderingHints.VALUE_ANTIALIAS_OFF);
         try {
-            int vpW = VIEW_TX * TILE * SCALE;
-            int vpH = VIEW_TY * TILE * SCALE;
-            updateCamera(vpW, vpH);
-
-            // Scale the fixed 640x384 world to fill the 800x600 window.
-            double sx = (double) viewW / vpW;
-            double sy = (double) viewH / vpH;
-            g2.scale(sx, sy);
+            int viewTilesW = Math.max(1, viewW / (TILE * SCALE));
+            int viewTilesH = Math.max(1, viewH / (TILE * SCALE));
+            updateCamera(viewW, viewH);
 
             g2.setColor(GamePalette.ROYAL_DEEP);
-            g2.fillRect(0, 0, vpW, vpH);
+            g2.fillRect(0, 0, viewW, viewH);
 
             int offX = 0;
             int offY = 0;
 
             int c0 = Math.max(0, camX / TILE);
             int r0 = Math.max(0, camY / TILE);
-            int c1 = Math.min(MAP_W - 1, c0 + VIEW_TX - 1);
-            int r1 = Math.min(MAP_H - 1, r0 + VIEW_TY - 1);
+            int c1 = Math.min(MAP_W - 1, c0 + viewTilesW - 1);
+            int r1 = Math.min(MAP_H - 1, r0 + viewTilesH - 1);
 
             // Ground sprites only (cobble carries its own edging; no edge lines).
             for (int r = r0; r <= r1; r++) {
@@ -2043,8 +2038,8 @@ public final class VillageScene {
             drawRoofForeground(g2, offX, offY, c0, r0, c1, r1);
             drawFountainUpperPass(g2, offX, offY, c0, r0, c1, r1);
 
-            if (debug) drawDebug(g2, offX, offY, vpW, vpH, c0, r0, c1, r1);
-            drawHud(g2, vpW, vpH);
+            if (debug) drawDebug(g2, offX, offY, viewW, viewH, c0, r0, c1, r1);
+            drawHud(g2, viewW, viewH);
         } finally {
             if (oldInterp != null) g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, oldInterp);
             if (oldAA != null) g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, oldAA);
