@@ -43,14 +43,16 @@ public final class VillageScene {
     private static final int INN_INT_H = 8;
     private static final int INN_DOOR_X = 5;
     private static final int INN_DOOR_Y = 7;
-    private static final int INN_SPAWN_X = 5;
-    private static final int INN_SPAWN_Y = 5;
 
     // Interior mode
     private boolean inInnInterior = false;
     private Npc innkeeper;
     private int[][] innWalls; // 12x8: 0=floor, 1=wall, 2=counter, 3=bed, 4=door
     private boolean[][] innSolid;
+    // Universal entrance rule: every interior records its door cell (kind 4)
+    // here, and the player always spawns on that cell facing into the room.
+    private int roomDoorX = INN_DOOR_X;
+    private int roomDoorY = INN_DOOR_Y;
 
     // Fade transition (300 ms each way at 60 UPS)
     private static final int FADE_TICKS = 18;
@@ -283,6 +285,7 @@ public final class VillageScene {
 
     public VillageScene() {
         buildMap();
+        buildInnInterior(); // layouts exist before any transition can fire
         reset();
     }
 
@@ -794,7 +797,11 @@ public final class VillageScene {
         assertDoorsShut();
     }
 
-    /** Build the Inn interior map (12x8) - called when entering the Inn */
+    /**
+     * Build the Inn interior map (12x8) - called once at construction so the
+     * entrance cell is known before any transition fires. Layout only: the
+     * inInnInterior flag is owned by beginTransition/applyPending/reset.
+     */
     private void buildInnInterior() {
         innWalls = new int[INN_INT_W][INN_INT_H];
         innSolid = new boolean[INN_INT_W][INN_INT_H];
@@ -835,7 +842,18 @@ public final class VillageScene {
         innkeeper.facing = Dir.DOWN;
         innSolid[5][1] = true;
 
-        inInnInterior = true;
+        // Universal entrance: record the layout's door cell (kind 4) — the
+        // player always spawns here when the room is entered, facing inward.
+        roomDoorX = INN_DOOR_X;
+        roomDoorY = INN_DOOR_Y;
+        for (int y = 0; y < INN_INT_H; y++) {
+            for (int x = 0; x < INN_INT_W; x++) {
+                if (innWalls[x][y] == 4) {
+                    roomDoorX = x;
+                    roomDoorY = y;
+                }
+            }
+        }
     }
 
     /** Every door starts shut + solid with a walkable entrance; none open. */
@@ -1424,7 +1442,7 @@ public final class VillageScene {
                 }
                 // Cross the threshold: fade into (or out of) the Inn interior.
                 if (inInnInterior) {
-                    if (col == INN_DOOR_X && row == INN_DOOR_Y) {
+                    if (col == roomDoorX && row == roomDoorY) {
                         int ex = SPAWN_C;
                         int ey = SPAWN_R;
                         for (Building b : buildings) {
@@ -1437,7 +1455,8 @@ public final class VillageScene {
                     }
                 } else if (openDoor != null && "INN".equals(openDoor.name)
                         && col == openDoor.doorX && row == openDoor.doorY) {
-                    beginTransition(true, INN_SPAWN_X, INN_SPAWN_Y, Dir.DOWN);
+                    // Universal spawn rule: stand on the room's door cell, facing in.
+                    beginTransition(true, roomDoorX, roomDoorY, Dir.UP);
                 }
             }
         }

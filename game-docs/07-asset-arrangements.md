@@ -384,3 +384,30 @@ corridor (cols 14-16, rows 32-34) so the facade/entrance stays unobstructed.
 Every cell in rows 32-34 is solid (invisible bound) so the player cannot pass
 into the exterior; transition to other areas is deferred. Counts: 6 trees, 6
 bushes in the extension; +96 invisible bounds.
+
+## 12. Interiors (rooms) — universal rules
+
+Every interior (Inn now; tavern/mentor/etc. later) is a mode inside
+`VillageScene` with its own small grid (`innWalls`/`innSolid` style arrays),
+its own camera centering, and a 300 ms fade-to-black swap via
+`beginTransition/applyPending`. Rules that apply to ALL rooms:
+
+1. **Universal entrance spawn**: every room layout marks its entrance with a
+   door cell (`kind 4`, south wall). The layout builder records it in
+   `roomDoorX/roomDoorY`, and the player ALWAYS spawns on that door cell,
+   facing into the room (`Dir.UP` for south doors). Never hand-pick a
+   mid-room spawn point.
+2. **Universal exit**: stepping onto the room's door cell triggers the fade
+   back to the village doorstep of the matching building, facing up. The
+   door shuts behind you both ways.
+3. Rooms are built once at construction (`buildInnInterior()` pattern) so the
+   entrance is known before any transition fires; `inInnInterior`-style mode
+   flags are owned only by `beginTransition/applyPending/reset`.
+4. Layout codes: 0 floor, 1 wall, 2 counter, 3 bed, 4 door (walkable).
+   Solidity derives from the layout; the door cell stays walkable.
+5. Temporary placeholder colors until real interior art lands: blue floor,
+   gray walls with white caps, white counter top on a dark face, red beds.
+   Figures and furniture share the Layer 2 Y-sort (the counter's sort key
+   alone puts it in front of whoever stands behind it).
+6. Interiors fit the viewport: the room is centered on royal-deep letterbox,
+   never scrolled. Input is frozen for the whole fade (both directions).
