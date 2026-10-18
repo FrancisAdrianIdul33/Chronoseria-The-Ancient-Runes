@@ -141,9 +141,8 @@ sampling in build tooling — never hand-transcribed).
   (4,21),(5,21),(6,21),(7,11),(8,11),(12,11),(13,11),(14,19),(15,19),
   (16,19),(16,28),(17,25),(17,28),(22,11),(23,11),(26,21),(27,21); solid
   blockers on grass.
-- Wells: `(2,8)`, `(2,21)` dark-grey singles, wired with `well.png`
-  (`assets/well.png`, `src/main/resources/assets/tiles/well.png`); solid.
-- Bushes: 8 on free grass cells away from doors/entrances/walls, wired with
+- Wells: `(2,8)` dark-grey single, wired with `well.png`
+  (`assets/well.png`, `src/main/resources/assets/tiles/well.png`); solid.- Bushes: 8 on free grass cells away from doors/entrances/walls, wired with
   `bush.png` (`assets/bush.png`,
   `src/main/resources/assets/tiles/bush.png`); solid grass props.
 

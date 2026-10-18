@@ -625,8 +625,7 @@ public final class VillageScene {
         fence(16, 28); fence(17, 25); fence(17, 28);
         fence(22, 11); fence(23, 11);
         fence(26, 21); fence(27, 21);
-        well(2, 8); well(2, 21);
-        // Bushes: 8 on free grass cells away from doors/entrances/walls.
+        well(2, 8);        // Bushes: 8 on free grass cells away from doors/entrances/walls.
         int bushesPlaced = 0;
         outer:
         for (int by = 0; by < MAP_H && bushesPlaced < 8; by++) {
