@@ -142,9 +142,10 @@ sampling in build tooling — never hand-transcribed).
   (16,19),(16,28),(17,25),(17,28),(22,11),(23,11),(26,21),(27,21); solid
   blockers on grass.
 - Wells: `(2,8)` dark-grey single, wired with `well.png`
-  (`assets/well.png`, `src/main/resources/assets/tiles/well.png`); solid.- Bushes: 16 (8 outside + 8 inside the village) on free grass cells away from
-  doors/entrances/walls, wired with `bush.png` (`assets/bush.png`,
-  `src/main/resources/assets/tiles/bush.png`); solid grass props.
+  (`assets/well.png`, `src/main/resources/assets/tiles/well.png`); solid.- Bushes: 18 in clustered clumps (outside + inside the village), varied shapes,
+  on free grass cells away from doors/entrances/walls, wired with `bush.png`
+  (`assets/bush.png`, `src/main/resources/assets/tiles/bush.png`); solid grass
+  props.
 
 ## 6. Buildings and doors
 
