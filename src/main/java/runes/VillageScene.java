@@ -1941,13 +1941,17 @@ public final class VillageScene {
             int vpW = VIEW_TX * TILE * SCALE;
             int vpH = VIEW_TY * TILE * SCALE;
             updateCamera(vpW, vpH);
-            int offX = ((viewW - vpW) / 2 / (TILE * SCALE)) * (TILE * SCALE);
-            int offY = ((viewH - vpH) / 2 / (TILE * SCALE)) * (TILE * SCALE);
+
+            // Scale the fixed 640x384 world to fill the 800x600 window.
+            double sx = (double) viewW / vpW;
+            double sy = (double) viewH / vpH;
+            g2.scale(sx, sy);
 
             g2.setColor(GamePalette.ROYAL_DEEP);
-            g2.fillRect(0, 0, viewW, viewH);
-            java.awt.Shape oldClip = g2.getClip();
-            g2.setClip(offX, offY, vpW, vpH);
+            g2.fillRect(0, 0, vpW, vpH);
+
+            int offX = 0;
+            int offY = 0;
 
             int c0 = Math.max(0, camX / TILE);
             int r0 = Math.max(0, camY / TILE);
@@ -2039,9 +2043,8 @@ public final class VillageScene {
             drawRoofForeground(g2, offX, offY, c0, r0, c1, r1);
             drawFountainUpperPass(g2, offX, offY, c0, r0, c1, r1);
 
-            g2.setClip(oldClip);
-            if (debug) drawDebug(g2, offX, offY, viewW, viewH, c0, r0, c1, r1);
-            drawHud(g2, viewW, viewH);
+            if (debug) drawDebug(g2, offX, offY, vpW, vpH, c0, r0, c1, r1);
+            drawHud(g2, vpW, vpH);
         } finally {
             if (oldInterp != null) g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, oldInterp);
             if (oldAA != null) g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, oldAA);
