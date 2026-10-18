@@ -372,3 +372,7 @@ TT......TWT..N.pff.TTW.~.......T
 Legend: `.` grass, `p` path, `G` gate, `~` water, `T` tree, `F` fountain base,
 `U` fountain upper, `W` wall top, `w` wall brick, `S` sewer, `f` fence, `b` bush,
 `O` well, `=` bridge, letters for buildings/NPCs/spawn.
+
+Rendering rule: the map is rendered in full every frame (all 32x32 cells) with the
+camera clamped to the map bounds, so no blue gaps appear at the edges when the
+camera moves. The view is clipped to the window.
