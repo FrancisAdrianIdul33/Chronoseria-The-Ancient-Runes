@@ -36,15 +36,6 @@ public final class GamePanel extends JPanel {
         return new java.awt.Dimension(SCREEN_W, SCREEN_H);
     }
 
-    @Override
-    public java.awt.Dimension getMinimumSize() {
-        return new java.awt.Dimension(SCREEN_W, SCREEN_H);
-    }
-
-    @Override
-    public java.awt.Dimension getMaximumSize() {
-        return new java.awt.Dimension(SCREEN_W, SCREEN_H);
-    }
 
     public boolean isGame() {
         return screen == Screen.GAME;

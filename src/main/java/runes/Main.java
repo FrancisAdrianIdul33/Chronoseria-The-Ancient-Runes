@@ -17,7 +17,11 @@ public final class Main {
             javax.swing.JPanel root = new javax.swing.JPanel(new java.awt.GridBagLayout());
             root.setBackground(java.awt.Color.BLACK);
             root.setPreferredSize(new java.awt.Dimension(800, 600));
-            root.add(panel, new java.awt.GridBagConstraints());
+            java.awt.GridBagConstraints gbc = new java.awt.GridBagConstraints();
+            gbc.fill = java.awt.GridBagConstraints.BOTH;
+            gbc.weightx = 1.0;
+            gbc.weighty = 1.0;
+            root.add(panel, gbc);
             frame.setContentPane(root);
             InputManager input = new InputManager(panel);
             panel.addKeyListener(input); // listen on the focused component, not the frame
