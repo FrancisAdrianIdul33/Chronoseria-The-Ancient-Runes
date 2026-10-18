@@ -2429,11 +2429,6 @@ public final class VillageScene {
     }
 
     private void drawHud(Graphics2D g2, int viewW, int viewH) {
-        g2.setColor(GamePalette.ROYAL_BLUE);
-        g2.fillRect(0, 0, viewW, 22);
-        g2.setColor(GamePalette.PARCHMENT);
-        g2.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 11));
-        g2.drawString("CONERIA TEST - WASD/arrows move  E/ENTER talk  F3 debug  ESC menu", 8, 15);
         if (!message.isEmpty()) {
             int boxH = 44;
             g2.setColor(GamePalette.PARCHMENT);
