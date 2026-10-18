@@ -2448,24 +2448,56 @@ public final class VillageScene {
 
     private void drawHud(Graphics2D g2, int viewW, int viewH) {
         if (!message.isEmpty()) {
-            int boxH = 44;
-            g2.setColor(GamePalette.PARCHMENT);
-            g2.fillRect(12, viewH - boxH - 10, viewW - 24, boxH);
-            g2.setColor(GamePalette.ROYAL_BLUE);
-            g2.drawRect(12, viewH - boxH - 10, viewW - 24, boxH);
+            int panelW = Math.min(viewW - 40, 760);
+            int panelH = 96;
+            int px = (viewW - panelW) / 2;
+            int py = viewH - panelH - 16;
+            int arc = 18;
+            // Body (legendary gold) with royal blue border.
             g2.setColor(GamePalette.LEGENDARY_GOLD);
-            g2.fillRect(12, viewH - boxH - 10, 5, 5);
-            g2.fillRect(viewW - 17, viewH - boxH - 10, 5, 5);
-            g2.fillRect(12, viewH - 15, 5, 5);
-            g2.fillRect(viewW - 17, viewH - 15, 5, 5);
+            g2.fillRoundRect(px, py, panelW, panelH, arc, arc);
             g2.setColor(GamePalette.ROYAL_BLUE);
-            g2.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
-            g2.drawString(message, 24, viewH - 24);
+            g2.setStroke(new java.awt.BasicStroke(2f));
+            g2.drawRoundRect(px, py, panelW, panelH, arc, arc);
+            // Portrait placeholder box on the left.
+            int portSize = panelH - 16;
+            int portX = px + 12;
+            int portY = py + 8;
+            g2.setColor(GamePalette.ARCANE_BLUE);
+            g2.fillRoundRect(portX, portY, portSize, portSize, 10, 10);
+            g2.setColor(GamePalette.ROYAL_BLUE);
+            g2.drawRoundRect(portX, portY, portSize, portSize, 10, 10);
+            // Text area.
+            int textX = portX + portSize + 12;
+            int textW = panelW - (textX - px) - 12;
+            g2.setColor(GamePalette.ROYAL_DEEP);
+            g2.setFont(new Font("Times New Roman", Font.PLAIN, 15));
+            java.awt.FontMetrics fm = g2.getFontMetrics();
+            int lineH = fm.getHeight();
+            int ty = py + fm.getAscent() + 6;
+            // Wrap message into lines.
+            java.util.List<String> lines = new java.util.ArrayList<>();
+            StringBuilder cur = new StringBuilder();
+            for (String word : message.split(" ")) {
+                String test = cur.length() == 0 ? word : cur + " " + word;
+                if (fm.stringWidth(test) <= textW) {
+                    cur = new StringBuilder(test);
+                } else {
+                    if (cur.length() > 0) lines.add(cur.toString());
+                    cur = new StringBuilder(word);
+                }
+            }
+            if (cur.length() > 0) lines.add(cur.toString());
+            int maxLines = (panelH - 12) / lineH;
+            for (int i = 0; i < Math.min(lines.size(), maxLines); i++) {
+                g2.drawString(lines.get(i), textX, ty + i * lineH);
+            }
             if (dialogue.isOpen()) {
                 String hint = dialogue.hint();
-                g2.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 11));
+                g2.setFont(new Font("Times New Roman", Font.PLAIN, 12));
+                g2.setColor(GamePalette.ROYAL_BLUE);
                 int hw = g2.getFontMetrics().stringWidth(hint);
-                g2.drawString(hint, viewW - 24 - hw, viewH - 24);
+                g2.drawString(hint, px + panelW - hw - 12, py + panelH - 8);
             }
         }
     }
