@@ -169,6 +169,11 @@ public final class VillageScene {
     /** Villager mind: ordinary routine, yields only when blocking the player. */
     enum NpcState { IDLE, WANDER, TALKING, MOVE_ASIDE, BACK_UP, PASS_THROUGH }
 
+    static final class SpriteSet {
+        BufferedImage idleN, idleS, idleE, idleW;
+        BufferedImage[] walkN, walkS, walkW;
+    }
+
     static final class Npc {
         final String name;
         final String[] lines; // dialogue stages, cycles 0..n
@@ -190,6 +195,7 @@ public final class VillageScene {
         java.util.ArrayDeque<int[]> path; // BFS steps to wander target
         java.util.ArrayDeque<int[]> trail = new java.util.ArrayDeque<>(); // recent cells
         int safeC, safeR; // last wide cell (a free side neighbor exists)
+        SpriteSet sprite; // optional sprite set; null = procedural figure
         Npc(String name, int cx, int cy, Color clothes, boolean mind, int[][] zone, String... lines) {
             this.name = name; this.col = cx; this.row = cy;
             this.safeC = cx; this.safeR = cy;
@@ -257,6 +263,7 @@ public final class VillageScene {
     // ---- Player sprites (rotations for facing, GIFs for walking) ----
     private BufferedImage playerIdleN, playerIdleS, playerIdleE, playerIdleW;
     private BufferedImage[] playerWalkN, playerWalkS, playerWalkW;
+    private SpriteSet femaleVillager1Sprite;
 
     private String message = "";
 
@@ -290,6 +297,7 @@ public final class VillageScene {
     private int camX, camY;
 
     public VillageScene() {
+        ensureSprites();
         buildMap();
         buildInnInterior(); // layouts exist before any transition can fire
         reset();
@@ -541,6 +549,15 @@ public final class VillageScene {
         playerWalkN = loadGifFrames("/assets/player/walk/north.gif");
         playerWalkS = loadGifFrames("/assets/player/walk/south.gif");
         playerWalkW = loadGifFrames("/assets/player/walk/west.gif");
+        // Female villager 1 sprite set (assigned to one NPC).
+        femaleVillager1Sprite = new SpriteSet();
+        femaleVillager1Sprite.idleN = requireTile("/assets/npcs/female_villager_1/north.png");
+        femaleVillager1Sprite.idleS = requireTile("/assets/npcs/female_villager_1/south.png");
+        femaleVillager1Sprite.idleE = requireTile("/assets/npcs/female_villager_1/east.png");
+        femaleVillager1Sprite.idleW = requireTile("/assets/npcs/female_villager_1/west.png");
+        femaleVillager1Sprite.walkN = loadGifFrames("/assets/npcs/female_villager_1/walking_north.gif");
+        femaleVillager1Sprite.walkS = loadGifFrames("/assets/npcs/female_villager_1/walking_south.gif");
+        femaleVillager1Sprite.walkW = loadGifFrames("/assets/npcs/female_villager_1/walking_west_and_east.gif");
     }
 
     private BufferedImage requireTile(String resourcePath) {
@@ -782,11 +799,13 @@ public final class VillageScene {
             }
         }
         // NPCs rehomed to the new regions, each with a home zone.
-        npcs.add(new Npc("Amara", 13, 18, VillagePalette.WATER, true,
+        Npc amara = new Npc("Amara", 13, 18, VillagePalette.WATER, true,
                 new int[][]{{13, 18}, {18, 18}, {13, 22}, {19, 22}},
                 "Amara: \"Good day! The village is peaceful today.\"",
                 "Amara: \"The inn is south, past the corridor.\"",
-                "Amara: \"It is nice to see new faces around here.\""));
+                "Amara: \"It is nice to see new faces around here.\"");
+        amara.sprite = femaleVillager1Sprite;
+        npcs.add(amara);
         npcs.add(new Npc("Darius", 22, 7, VillagePalette.ROOF_WEAPON, true,
                 new int[][]{{22, 7}, {18, 7}, {28, 7}, {22, 9}},
                 "Darius: \"Smithy's west, market's east.\"",
@@ -2705,25 +2724,60 @@ public final class VillageScene {
     private void drawNpc(Graphics2D g2, int offX, int offY, Npc n) {
         int x = (int) (offX + (n.renderCx - camX) * SCALE);
         int y = (int) (offY + (n.renderCy - camY) * SCALE);
-        int swing = (n.stepping && (n.stepT / 3) % 2 == 0) ? 1 : 0;
-        g2.setColor(VillagePalette.OUTLINE_DARK);
-        g2.fillRect(x - 6, y + 6, 5, 7 - swing);
-        g2.fillRect(x + 1, y + 6, 5, 7 + swing);
-        g2.setColor(VillagePalette.SKIN);
-        g2.fillOval(x - 6, y - 19, 12, 12);
-        g2.setColor(n.clothes);
-        g2.fillRect(x - 9, y - 7, 18, 13);
-        g2.setColor(VillagePalette.OUTLINE_DARK);
-        g2.drawRect(x - 9, y - 7, 17, 12);
-        // Facing tick, same language as the player's nose dot.
-        int nx = x, ny = y - 13;
-        switch (n.facing) {
-            case UP -> ny -= 8;
-            case DOWN -> ny += 8;
-            case LEFT -> nx -= 12;
-            case RIGHT -> nx += 12;
+        if (n.sprite != null) {
+            BufferedImage img = null;
+            boolean flip = false;
+            if (n.stepping) {
+                BufferedImage[] frames = switch (n.facing) {
+                    case UP -> n.sprite.walkN;
+                    case DOWN -> n.sprite.walkS;
+                    case LEFT, RIGHT -> n.sprite.walkW;
+                };
+                if (frames != null && frames.length > 0) {
+                    int idx = (n.stepT / ANIM_TICKS) % frames.length;
+                    img = frames[idx];
+                    flip = (n.facing == Dir.RIGHT);
+                }
+            } else {
+                img = switch (n.facing) {
+                    case UP -> n.sprite.idleN;
+                    case DOWN -> n.sprite.idleS;
+                    case LEFT -> n.sprite.idleW;
+                    case RIGHT -> n.sprite.idleE;
+                };
+            }
+            if (img != null) {
+                int w = img.getWidth();
+                int h = img.getHeight();
+                int drawX = x - w / 2;
+                int drawY = y - h / 2;
+                if (flip) {
+                    g2.drawImage(img, drawX + w, drawY, -w, h, null);
+                } else {
+                    g2.drawImage(img, drawX, drawY, null);
+                }
+            }
+        } else {
+            int swing = (n.stepping && (n.stepT / 3) % 2 == 0) ? 1 : 0;
+            g2.setColor(VillagePalette.OUTLINE_DARK);
+            g2.fillRect(x - 6, y + 6, 5, 7 - swing);
+            g2.fillRect(x + 1, y + 6, 5, 7 + swing);
+            g2.setColor(VillagePalette.SKIN);
+            g2.fillOval(x - 6, y - 19, 12, 12);
+            g2.setColor(n.clothes);
+            g2.fillRect(x - 9, y - 7, 18, 13);
+            g2.setColor(VillagePalette.OUTLINE_DARK);
+            g2.drawRect(x - 9, y - 7, 17, 12);
+            // Facing tick, same language as the player's nose dot.
+            int nx = x, ny = y - 13;
+            switch (n.facing) {
+                case UP -> ny -= 8;
+                case DOWN -> ny += 8;
+                case LEFT -> nx -= 12;
+                case RIGHT -> nx += 12;
+            }
+            g2.fillRect(nx - 1, ny - 1, 2, 2);
         }
-        g2.fillRect(nx - 1, ny - 1, 2, 2);
         // White name tag with a dark shadow so it reads on any ground.
         g2.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 9));
         g2.setColor(VillagePalette.OUTLINE_DARK);
