@@ -71,7 +71,7 @@ public final class AudioManager {
     }
 
     private static String resourceFor(String id) {
-        if ("village".equals(id)) return "/assets/music/bamboo.wav";
+        if ("village".equals(id)) return "/assets/music/Village Theme.wav";
         throw new IllegalArgumentException("Unknown music id: " + id);
     }
 

@@ -8,6 +8,8 @@ import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
 import java.io.InputStream;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
 
 /**
  * FINAL village walk test: Coneria-style 32x32 town.
@@ -27,7 +29,7 @@ public final class VillageScene {
     static final int VIEW_TX = 20;
     static final int VIEW_TY = 12;
     static final int SCALE = 2; // whole-number scale only
-    static final int STEP_TICKS = 12; // ~0.2s per cell at 60 UPS
+    static final int STEP_TICKS = 18; // ~0.3s per cell at 60 UPS
     static final int NPC_STEP_TICKS = 18; // villagers stroll slower than the player
     static final int NPC_BLOCK_DIST = 2; // Manhattan range that counts as "in the way"
     static final int NPC_FOLLOW_DIST = 4; // tailing range: same line behind counts as pressing
@@ -251,6 +253,10 @@ public final class VillageScene {
     private double renderCx, renderCy;
     private int animT;
     private int walkFrame;
+
+    // ---- Player sprites (rotations for facing, GIFs for walking) ----
+    private BufferedImage playerIdleN, playerIdleS, playerIdleE, playerIdleW;
+    private BufferedImage[] playerWalkN, playerWalkS, playerWalkW;
 
     private String message = "";
 
@@ -527,6 +533,14 @@ public final class VillageScene {
         sewerTile = requireTile("/assets/tiles/sewer.png");
         fountainBase = requireTile("/assets/tiles/fountain_base.png");
         fountainUpper = requireTile("/assets/tiles/fountain_upper.png");
+        // Player art: rotations for idle facing, GIFs for walking (east walk flips west).
+        playerIdleN = requireTile("/assets/player/rotations/north.png");
+        playerIdleS = requireTile("/assets/player/rotations/south.png");
+        playerIdleE = requireTile("/assets/player/rotations/east.png");
+        playerIdleW = requireTile("/assets/player/rotations/west.png");
+        playerWalkN = loadGifFrames("/assets/player/walk/north.gif");
+        playerWalkS = loadGifFrames("/assets/player/walk/south.gif");
+        playerWalkW = loadGifFrames("/assets/player/walk/west.gif");
     }
 
     private BufferedImage requireTile(String resourcePath) {
@@ -563,6 +577,25 @@ public final class VillageScene {
     private void bush(int c, int r) {
         bushes.add(new int[]{c, r});
         solid[c][r] = true;
+    }
+
+    private BufferedImage[] loadGifFrames(String resourcePath) {
+        try (InputStream in = AssetLoader.open(resourcePath)) {
+            ImageReader reader = ImageIO.getImageReadersByFormatName("gif").next();
+            try (ImageInputStream iis = ImageIO.createImageInputStream(in)) {
+                reader.setInput(iis, false);
+                int n = reader.getNumImages(true);
+                BufferedImage[] frames = new BufferedImage[n];
+                for (int i = 0; i < n; i++) {
+                    frames[i] = reader.read(i);
+                }
+                return frames;
+            } finally {
+                reader.dispose();
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException("Missing player animation: " + resourcePath, e);
+        }
     }
 
     private BufferedImage loadTile(String resourcePath) {
@@ -1372,6 +1405,7 @@ public final class VillageScene {
 
     // ---- 2. Grid movement + key-state input ----
     public void update(InputManager in) {
+        ensureSprites();
         if (fadePhase != 0) { // scene swap in progress: freeze everything
             updateTransition();
             return;
@@ -1427,10 +1461,9 @@ public final class VillageScene {
             renderCx = (fromC * TILE + TILE / 2.0) + (toC - fromC) * TILE * t;
             renderCy = (fromR * TILE + TILE / 2.0) + (toR - fromR) * TILE * t;
             animT++;
-            if (animT >= ANIM_TICKS) {
-                animT = 0;
-                walkFrame = (walkFrame + 1) % 2;
-            }
+            int frames = (playerWalkN != null) ? playerWalkN.length : 8;
+            if (frames < 1) frames = 8;
+            walkFrame = (animT / ANIM_TICKS) % frames;
             if (stepT >= STEP_TICKS) {
                 col = toC;
                 row = toR;
@@ -1511,8 +1544,6 @@ public final class VillageScene {
         fromC = col; fromR = row;
         toC = tc; toR = tr;
         stepT = 0;
-        animT = ANIM_TICKS;
-        walkFrame = 1;
     }
 
     /** E works only on the entrance cell, facing up at the door. */
@@ -2701,35 +2732,43 @@ public final class VillageScene {
         g2.drawString(n.name, x - 10, y - 22);
     }
 
-    /** 11. Four directions, walk frames. Figure fills one cell (~32px tall). */
+    /** 11. Player sprite: rotations when idle, animated GIF frames when walking. */
     private void drawPlayer(Graphics2D g2, int offX, int offY) {
+        ensureSprites();
         int x = (int) (offX + (renderCx - camX) * SCALE);
         int y = (int) (offY + (renderCy - camY) * SCALE);
-        int swing = 0;
+        BufferedImage img = null;
+        boolean flip = false;
         if (stepping) {
-            swing = (walkFrame == 0) ? -3 : 3;
-            g2.setColor(VillagePalette.OUTLINE_DARK);
-            g2.fillRect(x - 6, y + 6, 5, 7 + swing);
-            g2.fillRect(x + 1, y + 6, 5, 7 - swing);
+            int idx = walkFrame;
+            BufferedImage[] frames = switch (facing) {
+                case UP -> playerWalkN;
+                case DOWN -> playerWalkS;
+                case LEFT, RIGHT -> playerWalkW;
+            };
+            if (frames != null && frames.length > 0) {
+                idx = idx % frames.length;
+                img = frames[idx];
+                flip = (facing == Dir.RIGHT);
+            }
         } else {
-            g2.setColor(VillagePalette.OUTLINE_DARK);
-            g2.fillRect(x - 6, y + 6, 5, 7);
-            g2.fillRect(x + 1, y + 6, 5, 7);
+            img = switch (facing) {
+                case UP -> playerIdleN;
+                case DOWN -> playerIdleS;
+                case LEFT -> playerIdleW;
+                case RIGHT -> playerIdleE;
+            };
         }
-        g2.setColor(VillagePalette.SKIN);
-        g2.fillOval(x - 6, y - 19, 12, 12);
-        g2.setColor(VillagePalette.PLAYER_TUNIC);
-        g2.fillRect(x - 9, y - 7, 18, 13);
-        g2.setColor(VillagePalette.OUTLINE_OFFWHITE);
-        g2.drawRect(x - 9, y - 7, 17, 12);
-        int nx = x, ny = y - 13;
-        switch (facing) {
-            case UP -> ny -= 8;
-            case DOWN -> ny += 8;
-            case LEFT -> nx -= 12;
-            case RIGHT -> nx += 12;
+        if (img == null) return;
+        int w = img.getWidth();
+        int h = img.getHeight();
+        int drawX = x - w / 2;
+        int drawY = y - h / 2;
+        if (flip) {
+            g2.drawImage(img, drawX + w, drawY, -w, h, null);
+        } else {
+            g2.drawImage(img, drawX, drawY, null);
         }
-        g2.fillRect(nx - 1, ny - 1, 2, 2);
     }
 
     private void drawDebug(Graphics2D g2, int offX, int offY,
