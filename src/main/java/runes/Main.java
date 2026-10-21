@@ -13,13 +13,22 @@ public final class Main {
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             GamePanel panel = new GamePanel();
             panel.setFocusable(true);
-            frame.setContentPane(panel);
+            // Keep the 800x600 game area centered and unscaled (letterboxed) in fullscreen.
+            javax.swing.JPanel root = new javax.swing.JPanel(new java.awt.GridBagLayout());
+            root.setBackground(java.awt.Color.BLACK);
+            root.setPreferredSize(new java.awt.Dimension(800, 600));
+            java.awt.GridBagConstraints gbc = new java.awt.GridBagConstraints();
+            gbc.fill = java.awt.GridBagConstraints.BOTH;
+            gbc.weightx = 1.0;
+            gbc.weighty = 1.0;
+            root.add(panel, gbc);
+            frame.setContentPane(root);
             InputManager input = new InputManager(panel);
             panel.addKeyListener(input); // listen on the focused component, not the frame
             panel.addMouseListener(input.mouse());
             frame.addMouseMotionListener(input.mouse());
             panel.attachInput(input);
-            frame.setSize(640, 480);
+            frame.pack();
             frame.setLocationRelativeTo(null);
             frame.setVisible(true);
             panel.requestFocusInWindow();

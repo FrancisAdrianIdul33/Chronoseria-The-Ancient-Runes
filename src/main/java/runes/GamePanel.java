@@ -13,6 +13,9 @@ import javax.swing.JPanel;
 
 /** Chronoseria: The Ancient Runes. TITLE (fade) -> MENU -> GAME. */
 public final class GamePanel extends JPanel {
+    public static final int SCREEN_W = 800;
+    public static final int SCREEN_H = 600;
+
     public enum Screen { TITLE, MENU, GAME }
 
     private static final int PROMPT_TICKS = 120;
@@ -27,6 +30,12 @@ public final class GamePanel extends JPanel {
     public void attachInput(InputManager input) {
         this.input = input;
     }
+
+    @Override
+    public java.awt.Dimension getPreferredSize() {
+        return new java.awt.Dimension(SCREEN_W, SCREEN_H);
+    }
+
 
     public boolean isGame() {
         return screen == Screen.GAME;
@@ -67,11 +76,13 @@ public final class GamePanel extends JPanel {
     public void startGame() {
         village.reset();
         screen = Screen.GAME;
+        AudioManager.playMusic("village");
         requestFocusInWindow();
     }
 
     public void showTitle() {
         screen = Screen.TITLE;
+        AudioManager.stopMusic();
         tick = 0;
     }
 
