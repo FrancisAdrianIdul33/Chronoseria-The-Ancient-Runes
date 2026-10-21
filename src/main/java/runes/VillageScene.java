@@ -65,7 +65,7 @@ public final class VillageScene {
     private Dir pendingFacing;
 
     /**
-     * Forest map (locked schematic dark-green cells, hand-verified): 159 trees
+     * Forest map (locked schematic dark-green cells, hand-verified): 165 trees
      * in clumps with grass gaps — northfield thickets, ridge bands behind the
      * north buildings, west ridge slivers, corner/dead-space fills, south
      * exterior woods. Single tile each: solid trunk, trunk Y-sorted, canopy
@@ -244,6 +244,10 @@ public final class VillageScene {
     private BufferedImage sewerTile;
     private BufferedImage fountainBase;
     private BufferedImage fountainUpper;
+    // Per-kind tinted roofs + lit shop-window variants, cached once after load.
+    private final java.util.Map<Kind, BufferedImage> roofTints = new java.util.EnumMap<>(Kind.class);
+    private BufferedImage houseWallWindowLit;
+    private BufferedImage houseBaseWindowLit;
     private final java.util.List<int[]> sewers = new java.util.ArrayList<>();
     private final java.util.List<int[]> fountainUppers = new java.util.ArrayList<>();
     private boolean spritesTried;
@@ -558,6 +562,47 @@ public final class VillageScene {
         femaleVillager1Sprite.walkN = loadGifFrames("/npcs/female_villager_1/walking_north.gif");
         femaleVillager1Sprite.walkS = loadGifFrames("/npcs/female_villager_1/walking_south.gif");
         femaleVillager1Sprite.walkW = loadGifFrames("/npcs/female_villager_1/walking_west_and_east.gif");
+        // Shop-window glow variants (used when b.shop; baked once, no per-frame tint).
+        houseWallWindowLit = tintOverlay(houseWallWindow, VillagePalette.WINDOW_LIT, 0.45f);
+        houseBaseWindowLit = tintOverlay(houseBaseWindow, VillagePalette.WINDOW_LIT, 0.45f);
+    }
+
+    /**
+     * Bakes a translucent color overlay onto a sprite once (roof tint, lit
+     * windows). SRC_OVER only touches opaque pixels, so transparent art edges
+     * stay clean.
+     */
+    private static BufferedImage tintOverlay(BufferedImage src, Color tint, float alpha) {
+        if (src == null) return null;
+        int w = src.getWidth(), h = src.getHeight();
+        BufferedImage out = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        java.awt.Graphics2D g = out.createGraphics();
+        try {
+            g.drawImage(src, 0, 0, null);
+            g.setComposite(java.awt.AlphaComposite.getInstance(
+                    java.awt.AlphaComposite.SRC_OVER, alpha));
+            g.setColor(tint);
+            g.fillRect(0, 0, w, h);
+        } finally {
+            g.dispose();
+        }
+        return out;
+    }
+
+    /** Roof sprite tinted by building kind; baked on first use, then cached. */
+    private BufferedImage roofFor(Building b) {
+        BufferedImage tinted = roofTints.get(b.kind);
+        if (tinted != null) return tinted;
+        Color tint = switch (b.kind) {
+            case INN -> VillagePalette.ROOF_INN;
+            case WEAPON -> VillagePalette.ROOF_WEAPON;
+            case ITEM -> VillagePalette.ROOF_ITEM;
+            case MAGIC -> VillagePalette.ROOF_MAGIC;
+            default -> VillagePalette.ROOF_HOUSE; // HOUSE, ARMOR, BIG
+        };
+        tinted = tintOverlay(houseRoof, tint, 0.55f);
+        roofTints.put(b.kind, tinted);
+        return tinted;
     }
 
     private BufferedImage requireTile(String resourcePath) {
@@ -777,10 +822,12 @@ public final class VillageScene {
         fence(7, 11); fence(8, 11);
         fence(12, 11); fence(13, 11);
         fence(14, 19); fence(15, 19); fence(16, 19);
-        fence(16, 28); fence(17, 25); fence(17, 28);
+        fence(16, 28); fence(17, 25); fence(17, 28); fence(18, 25);
         fence(22, 11); fence(23, 11);
         fence(26, 21); fence(27, 21);
-        well(2, 8);                // Bushes: clustered clumps (outside + inside), varied shapes.
+        well(2, 8);                // NW corner well (innkeeper's rumor points here).
+        well(28, 13);              // NE quadrant landmark, balances the far corner.
+        // Bushes: clustered clumps (outside + inside), varied shapes.
         bush(3, 0); bush(4, 0);
         bush(10, 0); bush(10, 1);
         bush(24, 0); bush(25, 0);
@@ -2561,15 +2608,19 @@ public final class VillageScene {
                 int cy = offY + ((b.ty + ly) * TILE - camY) * SCALE;
                 BufferedImage img;
                 if (ly == 0) {
-                    img = houseRoof;
+                    img = roofFor(b); // per-kind tint: Inn red, smith red-brown, etc.
                 } else if (ly < b.th - 1) {
                     int upperRow = ly - 1; // 0-based among upper rows
-                    img = upperHasWindow(b, upperRow, lx) ? houseWallWindow : houseWallPlain;
+                    img = upperHasWindow(b, upperRow, lx)
+                            ? (b.shop ? houseWallWindowLit : houseWallWindow)
+                            : houseWallPlain;
                 } else {
                     if (b.tx + lx == b.doorX) {
                         img = doorway ? houseDoorOpen : houseDoorClosed;
                     } else {
-                        img = baseHasWindow(b, lx) ? houseBaseWindow : houseBasePlain;
+                        img = baseHasWindow(b, lx)
+                                ? (b.shop ? houseBaseWindowLit : houseBaseWindow)
+                                : houseBasePlain;
                     }
                 }
                 g2.drawImage(img, cx, cy, s, s, null);

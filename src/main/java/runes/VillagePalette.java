@@ -33,8 +33,8 @@ public final class VillagePalette {
     public static final Color WINDOW_DAY = Color.decode("#9CC9E8");
     public static final Color WINDOW_FRAME = Color.decode("#3B2A1A");
 
-    public static final Color ROOF_INN = Color.decode("#3A62B8");
-    public static final Color ROOF_INN_DARK = Color.decode("#31539C");
+    public static final Color ROOF_INN = Color.decode("#D64541");
+    public static final Color ROOF_INN_DARK = Color.decode("#B23733");
     public static final Color ROOF_WEAPON = Color.decode("#B8362E");
     public static final Color ROOF_WEAPON_DARK = Color.decode("#9C2D27");
     public static final Color ROOF_ARMOR = Color.decode("#7A8089");
