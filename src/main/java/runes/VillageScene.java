@@ -521,43 +521,43 @@ public final class VillageScene {
     private void ensureSprites() {
         if (spritesTried) return;
         spritesTried = true;
-        grassTile = requireTile("/assets/tiles/grass.png");
-        wallBrickTile = requireTile("/assets/tiles/wall_brick.png");
-        wallTopTile = requireTile("/assets/tiles/wall_top.png");
-        treeBaseTile = requireTile("/assets/tiles/tree_base.png");
-        treeUpperTile = requireTile("/assets/tiles/tree_upper.png");
-        fenceTile = requireTile("/assets/tiles/fence.png");
-        wellTile = requireTile("/assets/tiles/well.png");
-        bushTile = requireTile("/assets/tiles/bush.png");
-        waterTile = requireTile("/assets/tiles/water.png");
-        pathTile = requireTile("/assets/tiles/path.png");
-        houseRoof = requireTile("/assets/tiles/house_roof.png");
-        houseWallWindow = requireTile("/assets/tiles/house_wall_window.png");
-        houseWallPlain = requireTile("/assets/tiles/house_wall_plain.png");
-        houseBaseWindow = requireTile("/assets/tiles/house_wall_base_window.png");
-        houseBasePlain = requireTile("/assets/tiles/house_wall_base_plain.png");
-        houseDoorClosed = requireTile("/assets/tiles/house_door_closed.png");
-        houseDoorOpen = requireTile("/assets/tiles/house_door_open.png");
-        sewerTile = requireTile("/assets/tiles/sewer.png");
-        fountainBase = requireTile("/assets/tiles/fountain_base.png");
-        fountainUpper = requireTile("/assets/tiles/fountain_upper.png");
+        grassTile = requireTile("/tiles/grass.png");
+        wallBrickTile = requireTile("/tiles/wall_brick.png");
+        wallTopTile = requireTile("/tiles/wall_top.png");
+        treeBaseTile = requireTile("/tiles/tree_base.png");
+        treeUpperTile = requireTile("/tiles/tree_upper.png");
+        fenceTile = requireTile("/tiles/fence.png");
+        wellTile = requireTile("/tiles/well.png");
+        bushTile = requireTile("/tiles/bush.png");
+        waterTile = requireTile("/tiles/water.png");
+        pathTile = requireTile("/tiles/path.png");
+        houseRoof = requireTile("/tiles/house_roof.png");
+        houseWallWindow = requireTile("/tiles/house_wall_window.png");
+        houseWallPlain = requireTile("/tiles/house_wall_plain.png");
+        houseBaseWindow = requireTile("/tiles/house_wall_base_window.png");
+        houseBasePlain = requireTile("/tiles/house_wall_base_plain.png");
+        houseDoorClosed = requireTile("/tiles/house_door_closed.png");
+        houseDoorOpen = requireTile("/tiles/house_door_open.png");
+        sewerTile = requireTile("/tiles/sewer.png");
+        fountainBase = requireTile("/tiles/fountain_base.png");
+        fountainUpper = requireTile("/tiles/fountain_upper.png");
         // Player art: rotations for idle facing, GIFs for walking (east walk flips west).
-        playerIdleN = requireTile("/assets/player/rotations/north.png");
-        playerIdleS = requireTile("/assets/player/rotations/south.png");
-        playerIdleE = requireTile("/assets/player/rotations/east.png");
-        playerIdleW = requireTile("/assets/player/rotations/west.png");
-        playerWalkN = loadGifFrames("/assets/player/walk/north.gif");
-        playerWalkS = loadGifFrames("/assets/player/walk/south.gif");
-        playerWalkW = loadGifFrames("/assets/player/walk/west.gif");
+        playerIdleN = requireTile("/player/rotations/north.png");
+        playerIdleS = requireTile("/player/rotations/south.png");
+        playerIdleE = requireTile("/player/rotations/east.png");
+        playerIdleW = requireTile("/player/rotations/west.png");
+        playerWalkN = loadGifFrames("/player/walk/north.gif");
+        playerWalkS = loadGifFrames("/player/walk/south.gif");
+        playerWalkW = loadGifFrames("/player/walk/west.gif");
         // Female villager 1 sprite set (assigned to one NPC).
         femaleVillager1Sprite = new SpriteSet();
-        femaleVillager1Sprite.idleN = requireTile("/assets/npcs/female_villager_1/north.png");
-        femaleVillager1Sprite.idleS = requireTile("/assets/npcs/female_villager_1/south.png");
-        femaleVillager1Sprite.idleE = requireTile("/assets/npcs/female_villager_1/east.png");
-        femaleVillager1Sprite.idleW = requireTile("/assets/npcs/female_villager_1/west.png");
-        femaleVillager1Sprite.walkN = loadGifFrames("/assets/npcs/female_villager_1/walking_north.gif");
-        femaleVillager1Sprite.walkS = loadGifFrames("/assets/npcs/female_villager_1/walking_south.gif");
-        femaleVillager1Sprite.walkW = loadGifFrames("/assets/npcs/female_villager_1/walking_west_and_east.gif");
+        femaleVillager1Sprite.idleN = requireTile("/npcs/female_villager_1/north.png");
+        femaleVillager1Sprite.idleS = requireTile("/npcs/female_villager_1/south.png");
+        femaleVillager1Sprite.idleE = requireTile("/npcs/female_villager_1/east.png");
+        femaleVillager1Sprite.idleW = requireTile("/npcs/female_villager_1/west.png");
+        femaleVillager1Sprite.walkN = loadGifFrames("/npcs/female_villager_1/walking_north.gif");
+        femaleVillager1Sprite.walkS = loadGifFrames("/npcs/female_villager_1/walking_south.gif");
+        femaleVillager1Sprite.walkW = loadGifFrames("/npcs/female_villager_1/walking_west_and_east.gif");
     }
 
     private BufferedImage requireTile(String resourcePath) {

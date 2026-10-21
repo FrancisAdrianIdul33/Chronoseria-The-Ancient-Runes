@@ -71,7 +71,8 @@ public final class AudioManager {
     }
 
     private static String resourceFor(String id) {
-        if ("village".equals(id)) return "/assets/music/Sweet Home.wav";
+        if ("village".equals(id)) return "/music/Sweet Home.wav";
+        if ("dread".equals(id)) return "/music/Dread.wav";
         throw new IllegalArgumentException("Unknown music id: " + id);
     }
 
